@@ -72,10 +72,3 @@ And the maven coordinates of horizon-spring is
 <pre><code>	&lt;groupId>horizon&lt;/groupId>
 	&lt;artifactId>horizon-spring&lt;/artifactId>
 	&lt;version>22.10.01&lt;/version></code></pre>
-<h4>Learning Horizon</h4>
-<p>Horizon provides API documentation for <a href="javadoc/index.html" target="_blank">Java</a> and <a href="jsdoc/index.html" target="_blank">JavaScript</a> classes to help you learn the library. 
-</p>
-<p>Reading package summaries and class APIs, you will see how to write applications using Horizon.<br />
-But probably the easiest way to learn Horizon is to work through the example project.<br />
-It also has tutorials to describe how to use features of Horizon.
-</p>
