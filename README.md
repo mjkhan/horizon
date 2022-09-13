@@ -48,7 +48,8 @@ Note that in production environment where a Horizon application is deployed to a
 please see to it whether it already has implementations of dependent APIs available.
 <h4 id="installation">Installation</h4>
 To install Horizon
-<ul><li>Unpack the distribution to any place that suits your need.</li>
+<ul><li><a href="https://sourceforge.net/projects/java-horizon/">Download</a> the Horizon distribution.</li>
+	<li>Unpack the distribution to any place that suits your need.</li>
 	<li>Add to the CLASSPATH <code>horizon-core-22.10.01.jar</code> and, if necessary, <code>horizon-spring-22.10.01.jar</code> in the <code>lib</code> directory.</li>
 	<li>Write configurations such as dbaccess.xml and/or SQL sheets and add them to the CLASSPATH.</li>
 </ul>
@@ -72,3 +73,10 @@ And the maven coordinates of horizon-spring is
 <pre><code>	&lt;groupId>horizon&lt;/groupId>
 	&lt;artifactId>horizon-spring&lt;/artifactId>
 	&lt;version>22.10.01&lt;/version></code></pre>
+<h4>Learning Horizon</h4>
+<p>Horizon provides API documentation for Java and JavaScript classes to help you learn the library. 
+</p>
+<p>Reading package summaries and class APIs, you will see how to write applications using Horizon.<br />
+But probably the easiest way to learn Horizon is to work through the example project.<br />
+It also has tutorials to describe how to use features of Horizon.
+</p>
