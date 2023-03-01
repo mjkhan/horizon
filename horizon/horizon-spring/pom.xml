@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<modelVersion>4.0.0</modelVersion>
+
+<parent>
+	<groupId>horizon</groupId>
+	<artifactId>horizon</artifactId>
+	<version>23.02.01</version>
+</parent>
+
+<artifactId>horizon-spring</artifactId>
+<packaging>jar</packaging>
+
+<name>horizon-spring</name>
+<url>http://maven.apache.org</url>
+
+<properties>
+	<spring.version>5.2.2.RELEASE</spring.version>
+</properties>
+
+<dependencies>
+	<!-- Horizon -->
+	<dependency>
+		<groupId>horizon</groupId>
+		<artifactId>horizon-core</artifactId>
+		<version>23.02.01</version>
+	</dependency>
+
+	<!-- Spring -->
+	<dependency>
+		<groupId>org.springframework</groupId>
+		<artifactId>spring-context</artifactId>
+		<version>${spring.version}</version>
+	</dependency>
+	<dependency>
+		<groupId>org.springframework</groupId>
+		<artifactId>spring-jdbc</artifactId>
+		<version>${spring.version}</version>
+	</dependency>
+	<dependency>
+		<groupId>org.springframework</groupId>
+		<artifactId>spring-tx</artifactId>
+		<version>${spring.version}</version>
+	</dependency>
+	
+</dependencies>
+
+</project>

@@ -1,0 +1,18 @@
+<taglib version="2.0" xmlns="http://java.sun.com/xml/j2ee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://java.sun.com/xml/ns/j2ee/web-jsptaglibrary_2_0.xsd">
+	<tlib-version>2.0</tlib-version>
+	<jsp-version>1.2</jsp-version>
+	<short-name>hrzn</short-name>
+	<uri>horizon.tld</uri>
+	<display-name>Horizon JSP Tags</display-name>
+	<description>Horizon JSP Tag Library</description>
+
+    <function>
+		<description><![CDATA[
+		Returns a string whose \r, \n, \t, and double quotation characters are escaped.
+		Must be used inside a double quotation.
+		]]></description>
+    	<name>jstring</name>
+    	<function-class>horizon.data.Convert</function-class>
+    	<function-signature>java.lang.String rntq(java.lang.String)</function-signature>
+    </function>
+</taglib>
