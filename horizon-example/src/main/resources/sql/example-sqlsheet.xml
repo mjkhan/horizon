@@ -1,0 +1,169 @@
+<?xml version="1.0"?>
+<sqlsheet namespace="example">
+
+<orm type="horizon.example.product.Product" alias="product" table="PRODUCT">
+	<mapping property="id"				column="PROD_ID"/>
+	<mapping property="name"			column="PROD_NAME"/>
+	<mapping property="type"			column="PROD_TYPE"/>
+	<mapping property="unitPrice"		column="UNIT_PRICE"/>
+	<mapping property="vendor"			column="VENDOR"/>
+</orm>
+
+<orm type="horizon.example.customer.Customer" alias="customer" table="CUSTOMER">
+	<mapping property="id"				column="CUST_ID"/>
+	<mapping property="name"			column="CUST_NAME"/>
+	<mapping property="address"			column="ADDRESS"/>
+	<mapping property="phoneNumber"		column="PHONE_NO"/>
+	<mapping property="email"			column="EMAIL"/>
+	<mapping property="credit"			column="CREDIT"/>
+	<mapping property="createdAt"		column="INS_TIME"/>
+	<mapping property="lastModified"	column="UPD_TIME"/>
+	
+	<beforeInsert set="createdAt, lastModified" properties="now, now" />
+	<beforeInsert set="id, credit" columns="NEW_ID, CREDIT">
+		<sql ref="newCustomerID"/>
+	</beforeInsert>
+	<beforeUpdate set="lastModified" properties="now" />
+</orm>
+
+<orm type="horizon.example.order.SalesOrder" table="SALES_ORDER">
+	<mapping property="id"				column="ORD_ID"/>
+	<mapping property="date"			column="ORD_DATE"/>
+	<mapping property="custID"			column="CUST_ID"/>
+	<mapping property="amount"			column="ORD_AMT"/>
+
+	<beforeInsert set="id" columns="NEW_ID">
+		<sql ref="newOrderID"/>
+	</beforeInsert>
+</orm>
+
+<orm type="horizon.example.order.LineItem" table="LINE_ITEM">
+	<mapping property="id"				column="LINE_ID"/>
+	<mapping property="orderID"			column="ORD_ID"/>
+	<mapping property="prodID"			column="PROD_ID"/>
+	<mapping property="quantity"		column="QNTY"/>
+	<mapping property="price"			column="PRICE"/>
+
+	<beforeInsert set="id" columns="NEW_ID">
+		<sql ref="newLineID"/>
+	</beforeInsert>
+</orm>
+
+<orm type="horizon.example.organization.Company" table="BUSI_ORG">
+	<mapping property="id"				column="ORG_ID"/>
+	<mapping property="type"			column="ORG_TYPE"/>
+	<mapping property="name"			column="ORG_NAME"/>
+	<mapping property="parentID"		column="PRNT_ORG"/>
+</orm>
+
+<orm type="horizon.example.organization.Division" table="BUSI_ORG">
+	<mapping property="id"				column="ORG_ID"/>
+	<mapping property="type"			column="ORG_TYPE"/>
+	<mapping property="name"			column="ORG_NAME"/>
+	<mapping property="parentID"		column="PRNT_ORG"/>
+</orm>
+
+<orm type="horizon.example.organization.Department" table="BUSI_ORG">
+	<mapping property="id"				column="ORG_ID"/>
+	<mapping property="type"			column="ORG_TYPE"/>
+	<mapping property="name"			column="ORG_NAME"/>
+	<mapping property="parentID"		column="PRNT_ORG"/>
+</orm>
+
+<query id="foundRows">SELECT FOUND_ROWS() TOT_CNT</query>
+
+<!-- SQLs for Product -->
+
+<query id="searchProducts">/* Searching products... */
+SELECT SQL_CALC_FOUND_ROWS *
+FROM PRODUCT
+<if test="!empty columnName and !empty columnValue">WHERE ${columnName} LIKE CONCAT(#{columnValue}, '%')</if>
+ORDER BY ${columnName}
+LIMIT #{start}, #{fetch}
+</query>
+
+<update id="removeProducts">/* Removing products... */
+DELETE FROM PRODUCT
+WHERE PROD_ID IN (<foreach items="prodIDs" var="prodID" separator=", ">#{prodID}</foreach>)
+</update>
+
+<!-- SQLs for Customer -->
+
+<sql id="newCustomerID">/* Getting a new Customer ID... */
+SELECT LPAD(IFNULL(MAX(CUST_ID) + 1, 1), 5, '0') NEW_ID, 10000 CREDIT
+FROM CUSTOMER
+</sql>
+
+<query id="searchCustomers" resultAlias="customer">/* Searching customers... */
+SELECT SQL_CALC_FOUND_ROWS *
+FROM CUSTOMER
+<if test="!empty columnName and !empty columnValue">WHERE ${columnName} LIKE CONCAT(#{columnValue}, '%')</if>
+ORDER BY ${columnName}
+LIMIT #{start}, #{fetch}
+</query>
+
+<update id="updateCustomer">/* Updating a customer... */
+UPDATE CUSTOMER SET
+	CUST_NAME = #{cust.name},
+	ADDRESS = #{cust.address},
+	PHONE_NO = #{cust.phoneNumber},
+	EMAIL = #{cust.email},
+	CREDIT = #{cust.credit},
+	UPD_TIME = #{now}
+WHERE CUST_ID = #{cust.id}
+</update>
+
+<update id="removeCustomers">/* Removing customers... */
+DELETE FROM CUSTOMER
+WHERE CUST_ID IN (<foreach items="custIDs" var="custID" separator=", ">#{custID}</foreach>)
+</update>
+
+<!-- SQLs for SalesOrder, LineItem -->
+
+<query id="searchOrders">/* Searching sales orders... */
+SELECT SQL_CALC_FOUND_ROWS A.*, CUST_NAME
+FROM SALES_ORDER A, CUSTOMER B
+WHERE A.CUST_ID = B.CUST_ID
+<if test="!empty columnName and !empty columnValue">AND ${columnName} LIKE CONCAT(#{columnValue}, '%')</if>
+ORDER BY ${columnName}<if test='"ORD_DATE" == columnName'> DESC</if>, ORD_ID DESC
+LIMIT #{start}, #{fetch}
+</query>
+
+<sql id="newOrderID">/* Getting a new sales order ID... */
+SELECT LPAD(IFNULL(MAX(ORD_ID) + 1, '1'), 5, '0') NEW_ID
+FROM SALES_ORDER
+</sql>
+
+<query id="getLineItems">/* Getting line items of a sales order... */
+SELECT A.*, PROD_NAME, PROD_TYPE, UNIT_PRICE
+FROM LINE_ITEM A, PRODUCT B
+WHERE ORD_ID = #{orderID}
+AND A.PROD_ID = B.PROD_ID
+ORDER BY LINE_ID
+</query>
+
+<sql id="newLineID">/* Getting a new line item ID... */
+SELECT LPAD(IFNULL(MAX(LINE_ID) + 1, '1'), 3, '0') NEW_ID
+FROM LINE_ITEM
+WHERE ORD_ID = #{_this.orderID}
+</sql>
+
+<update id="deleteOrders">/* Deleting a sales order... */
+DELETE FROM SALES_ORDER
+WHERE ORD_ID IN (<foreach items="orderIDs" var="orderID" separator=",">#{orderID}</foreach>)
+</update>
+
+<update id="deleteLineItems">/* Deleting Line items of a sales order... */
+DELETE FROM LINE_ITEM
+WHERE ORD_ID IN (<foreach items="orderIDs" var="orderID" separator=",">#{orderID}</foreach>)
+</update>
+
+<!-- SQLs for Organization -->
+
+<sql id="getOrganizations">/* Getting organizations... */
+SELECT *
+FROM BUSI_ORG
+ORDER BY ORG_TYPE, PRNT_ORG, ORG_ID
+</sql>
+
+</sqlsheet>

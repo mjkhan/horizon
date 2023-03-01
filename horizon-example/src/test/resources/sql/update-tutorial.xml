@@ -1,0 +1,65 @@
+<?xml version="1.0"?>
+<sqlsheet namespace="tutorial">
+<!--An SQL sheet is associated with a namespace.
+	A namespace may span multiple sql sheets. 
+-->
+
+<sql id="newCustomerID">
+SELECT LPAD(IFNULL(MAX(CUST_ID) + 1, 1), 5, '0') NEW_ID, 10000 CREDIT
+FROM CUSTOMER
+</sql>
+
+<!--In an SQL sheet, only named parameters are supported for sql statements.
+	Do not use '?' characters for parameters.
+-->
+<update id="insertCustomer">
+INSERT INTO CUSTOMER (CUST_ID, CUST_NAME, ADDRESS, PHONE_NO, EMAIL, CREDIT, INS_TIME, UPD_TIME)
+VALUES (#{custID}, #{name}, #{address}, #{phoneNo}, #{email}, #{credit}, #{now}, #{now})
+</update>
+
+<update id="updateCustomer">
+UPDATE CUSTOMER SET EMAIL = #{email}, UPD_TIME = CURRENT_TIMESTAMP WHERE CUST_ID = #{custID}
+</update>
+
+<update id="deleteCustomer">
+DELETE FROM CUSTOMER WHERE CUST_ID = #{custID}
+</update>
+
+<!--The 'before' elements are executed before the INSERT statement execution.
+-->
+<update id="insertCustomer2">
+<!--Before the INSERT statement, the 'tutorial.newCustomerID' <sql../> is executed
+and the result is set to cust.id
+-->
+<before set="cust.id" columns="NEW_ID"><sql ref="newCustomerID"/></before>
+<!--Before the INSERT statement, the 'now' value, which is provided as an argument,
+is set to cust.createdAt, and cust.lastModified properties.
+-->
+<before set="cust.createdAt, cust.lastModified" properties="now, now"/>
+INSERT INTO CUSTOMER (CUST_ID, CUST_NAME, ADDRESS, PHONE_NO, EMAIL, CREDIT, INS_TIME, UPD_TIME)
+VALUES (#{cust.id}, #{cust.name}, #{cust.address}, #{cust.phoneNumber}, #{cust.email}, #{cust.credit}, #{cust.createdAt}, #{cust.lastModified})
+</update>
+
+<update id="updateCustomer2">
+<!--Before the UPDATE statement, the 'now' value, which is provided as an argument,
+is set to the cust.lastModified property.
+-->
+<before set="cust.lastModified" properties="now"/>
+UPDATE CUSTOMER SET EMAIL = #{cust.email}, UPD_TIME = #{cust.lastModified} WHERE CUST_ID = #{cust.id}
+</update>
+
+<update id="deleteCustomer2">
+DELETE FROM CUSTOMER WHERE CUST_ID = #{cust.id}
+</update>
+
+<update id="sp_insert_customer">
+{call sp_insert_customer(#{custID}, #{name})}
+</update>
+
+<!--To call a stored procedure with OUT parameters, specify them with 'OUT:' prefix.
+-->
+<update id="sp_insert_customer_out">
+{call sp_insert_customer_out(#{OUT:custID}, #{name})}
+</update>
+
+</sqlsheet>

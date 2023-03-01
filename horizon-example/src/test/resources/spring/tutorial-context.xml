@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+<!--A DBAccess created with the 'datasource' property uses the datasource in accessing the database.
+	The SQLSheets, if any, are loaded from the paths of the 'sqlsheetLocations' property.
+-->
+	<bean id="datasourceAccess" class="horizon.spring.sql.DBAccessFactoryBean">
+ 		<property name="datasource" ref="dataSource" />
+ 		<property name="sqlsheetLocations" value="classpath:/sql/*-tutorial.xml" />
+	</bean>
+ 
+<!--A DBAccess created with the 'connectionName' property loads the configuration
+	from the optional 'configLocation' property, which is by default 'dbaccess.xml'.
+	The used SQLSheets, if any, are loaded from the paths specified in the configuration.
+	The transaction strategy is determined from the named configuration.
+	 
+    <bean id="jdbcAccess" class="horizon.spring.sql.DBAccessFactoryBean">
+		<property name="configLocation" value="dbaccess.xml"/>
+		<property name="connectionName" value="jdbcAccess"/>
+    </bean>
+ -->
+
+	<bean id="dataSource" class="org.apache.commons.dbcp2.BasicDataSource" destroy-method="close">
+		<property name="driverClassName" value="com.mysql.cj.jdbc.Driver"/>
+		<property name="url" value="jdbc:mysql://localhost:3306/HRZN_EXAMPLE?characterEncoding=UTF-8&amp;serverTimezone=UTC&amp;allowMultiQueries=true&amp;useSSL=false" />
+		<property name="username" value="root"/>
+		<property name="password" value="mjkhan"/>
+	</bean>
+
+</beans>

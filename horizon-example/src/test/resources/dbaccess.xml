@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<dbaccess>
+    <jdbc name="jdbcAccess">
+		<driver>com.mysql.cj.jdbc.Driver</driver>
+		<url>jdbc:mysql://localhost:3306/HRZN_EXAMPLE?characterEncoding=UTF-8&amp;serverTimezone=UTC&amp;allowMultiQueries=true&amp;useSSL=false</url>
+		<username>root</username>
+		<password>mjkhan</password>
+    </jdbc>
+
+<!-- 
+    <datasource name="datasourceAccess">
+    	<jndi-name>java:/HRZN_EXAMPLE</jndi-name>
+    	<transactionManagerName></transactionManagerName>
+    	<userTransactionName></userTransactionName>
+    </datasource>
+ -->
+
+	<sqlsheets>
+		sql/query-tutorial.xml,
+		sql/update-tutorial.xml,
+		sql/sqlsheet-tutorial.xml
+	</sqlsheets>
+
+</dbaccess>

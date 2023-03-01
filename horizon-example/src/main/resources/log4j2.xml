@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Configuration>
+
+<Configuration>
+
+    <Appenders>
+        <Console name="console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{HH:mm:ss,SSS} %5p [%c{1}] %m%n" />
+        </Console>
+		<RollingFile name="file" fileName="./logs/horizon.log" filePattern="./logs/horizon-%d{yy-MM-dd}.log" append="false">
+			<PatternLayout pattern="%d{HH:mm:ss,SSS} %5p [%c{1}] %m%n"/>
+			<Policies>
+				<TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+			</Policies>
+		</RollingFile>
+    </Appenders>
+
+    <Loggers>
+        <Logger name="horizon" level="DEBUG" additivity="false">
+            <AppenderRef ref="console" />
+            <AppenderRef ref="file" />
+        </Logger>
+        
+        <Root level="DEBUG">
+            <AppenderRef ref="console" />
+            <AppenderRef ref="file" />
+        </Root>
+    </Loggers>
+</Configuration>

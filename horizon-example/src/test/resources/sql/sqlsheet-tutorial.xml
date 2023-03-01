@@ -1,0 +1,142 @@
+<?xml version="1.0"?>
+<sqlsheet namespace="tutorial">
+
+<orm type="horizon.example.customer.Customer" alias="customer" table="CUSTOMER">
+	<mapping property="id"				column="CUST_ID"/>
+	<mapping property="name"			column="CUST_NAME"/>
+	<mapping property="address"			column="ADDRESS"/>
+	<mapping property="phoneNumber"		column="PHONE_NO"/>
+	<mapping property="email"			column="EMAIL"/>
+	<mapping property="credit"			column="CREDIT"/>
+	<mapping property="createdAt"		column="INS_TIME"/>
+	<mapping property="lastModified"	column="UPD_TIME"/>
+	
+	<!--Before INSERT, the argument for the 'now' parameter is set to the Customer's createdAt, lastModified properties
+	-->
+	<beforeInsert set="createdAt, lastModified" properties="now, now" />
+	<!--Before INSERT, the 'tutorial.newCustomerID' <sql../> is executed and
+		the result's NEW_ID, CREDIT column values are set to the Customer's id and credit properties. 
+	-->
+	<beforeInsert set="id, credit" columns="NEW_ID, CREDIT">
+		<sql ref="newCustomerID"/>
+	</beforeInsert>
+	<!--Before UPDATE, the argument for the 'now' parameter is set to the Customer's lastModified properties
+	-->
+	<beforeUpdate set="lastModified" properties="now" />
+	<!--You can also use beforeDelete elements.
+	-->
+</orm>
+
+<orm type="horizon.example.product.Product" alias="product" table="PRODUCT">
+	<mapping property="id"				column="PROD_ID"/>
+	<mapping property="name"			column="PROD_NAME"/>
+	<mapping property="type"			column="PROD_TYPE"/>
+	<mapping property="unitPrice"		column="UNIT_PRICE"/>
+	<mapping property="vendor"			column="VENDOR"/>
+</orm>
+
+<orm type="horizon.example.order.LineItem" table="LINE_ITEM">
+	<mapping property="id"				column="LINE_ID"/>
+	<mapping property="orderID"			column="ORD_ID"/>
+	<mapping property="prodID"			column="PROD_ID"/>
+	<mapping property="quantity"		column="QNTY"/>
+	<mapping property="price"			column="PRICE"/>
+
+	<beforeInsert set="id" columns="NEW_ID">
+		<sql ref="newLineID"/>
+	</beforeInsert>
+</orm>
+
+<orm type="horizon.example.organization.Company" table="BUSI_ORG">
+	<mapping property="id"				column="ORG_ID"/>
+	<mapping property="type"			column="ORG_TYPE"/>
+	<mapping property="name"			column="ORG_NAME"/>
+	<mapping property="parentID"		column="PRNT_ORG"/>
+</orm>
+
+<orm type="horizon.example.organization.Division" table="BUSI_ORG">
+	<mapping property="id"				column="ORG_ID"/>
+	<mapping property="type"			column="ORG_TYPE"/>
+	<mapping property="name"			column="ORG_NAME"/>
+	<mapping property="parentID"		column="PRNT_ORG"/>
+</orm>
+
+<orm type="horizon.example.organization.Department" table="BUSI_ORG">
+	<mapping property="id"				column="ORG_ID"/>
+	<mapping property="type"			column="ORG_TYPE"/>
+	<mapping property="name"			column="ORG_NAME"/>
+	<mapping property="parentID"		column="PRNT_ORG"/>
+</orm>
+
+<query id="if">
+SELECT *
+FROM CUSTOMER
+WHERE 1 = 1
+<if test="custID != null and custID != ''">AND CUST_ID = #{custID} </if>
+<if test="custName != null and custName != ''">AND CUST_NAME LIKE CONCAT(#{custName}, '%')</if>
+ORDER BY CUST_ID
+</query>
+
+<query id="foreach">
+SELECT *
+FROM CUSTOMER
+WHERE CUST_ID IN (<foreach items="custIDs" var="custID" separator=", ">#{custID}</foreach>)
+ORDER BY CUST_ID
+</query>
+
+<query id="foreach2">
+SELECT *
+FROM (<foreach items="names" var="name" index="index" separator=" UNION">
+	SELECT #{index} + 1 CUST_ID, #{name} CUST_NAME</foreach>
+) A
+</query>
+
+<update id="foreach3">
+UPDATE CUSTOMER SET
+       CREDIT = CASE CUST_ID
+                <foreach items="custList" var="cust" index="index" separator=" ">
+       <if test="index == 0">WHEN #{cust.id} THEN 90000</if>
+       <if test="index > 0">WHEN #{cust.id} THEN ((#{index} + 1) * #{cust.credit})</if>
+                </foreach>
+                ELSE CREDIT END
+WHERE CUST_ID IN (<foreach items="custList" var="cust" separator=", ">#{cust.id}</foreach>)
+</update>
+
+<query id="foreach4">
+<foreach items="map" var="entry" separator=" UNION">
+SELECT #{entry.key} ENTRY_KEY, #{entry.value} ENTRY_VALUE</foreach>
+</query>
+
+<sql id="sqlElement">
+SELECT '001' TYPE_ID, 'Standard' TYPE_NAME UNION
+SELECT '002' TYPE_ID, 'Professional' TYPE_NAME UNION
+SELECT '003' TYPE_ID, 'Suite' TYPE_NAME
+</sql>
+
+<query id="sqlElement2">
+<sql ref="sqlElement"/>
+</query>
+
+<query id="sqlElement3">
+SELECT PROD_ID, PROD_NAME, TYPE_ID, PROD_TYPE, UNIT_PRICE, VENDOR
+FROM PRODUCT A, (<sql ref="sqlElement"/>
+) B
+WHERE A.PROD_TYPE = TYPE_NAME
+</query>
+
+<query id="parameterTypes">
+SELECT *
+FROM ${table}
+WHERE ${columnName} = #{columnValue}
+</query>
+
+<query id="emptyOperator">
+SELECT *
+FROM CUSTOMER
+WHERE 1 = 1
+<if test="!empty custID">AND CUST_ID = #{custID} </if>
+<if test="!empty custName">AND CUST_NAME LIKE CONCAT(#{custName}, '%')</if>
+ORDER BY CUST_ID
+</query>
+
+</sqlsheet>

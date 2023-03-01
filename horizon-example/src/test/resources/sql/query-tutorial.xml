@@ -1,0 +1,76 @@
+<?xml version="1.0"?>
+<sqlsheet namespace="tutorial">
+<!--An SQL sheet is associated with a namespace.
+	A namespace may span multiple sql sheets. 
+-->
+
+<!--The 'resultType' attribute specifies the fully-qualified name of the class
+	that each row of the query result is converted to and from.
+	The class must be configured with an "orm" element for ORM information.
+	The ORM information of the Customer class below is configured in the 'sql/sqlsheet-tutorial.xml' file.
+-->
+<query id="allCustomers" resultType="horizon.example.customer.Customer">
+SELECT * FROM CUSTOMER
+</query>
+
+<!--The 'resultAlias' attribute specifies the alias of the fully-qualified name of the class
+	that each row of the query result is converted to and from.
+	The class must be configured with an "orm" element for ORM information.
+	The ORM information of the Customer class below is configured in the 'sql/sqlsheet-tutorial.xml' file.
+-->
+<query id="sp_all_customers" resultAlias="customer">
+{call sp_all_customers}
+</query>
+
+<!--In an SQL sheet, only named parameters are supported for sql statements.
+	Do not use '?' characters for parameters.
+-->
+<query id="getCustomers" resultAlias="customer">
+SELECT * FROM CUSTOMER
+WHERE CUST_NAME LIKE CONCAT(#{name}, '%') AND CREDIT > #{amount}
+</query>
+
+<query id="getCustomer" resultAlias="customer">
+SELECT * FROM CUSTOMER
+WHERE CUST_ID = #{id}
+</query>
+
+<query id="sp_get_customers" resultAlias="customer">
+{call sp_get_customers(#{name}, #{amount})}
+</query>
+
+<sql id="foundRows">SELECT FOUND_ROWS() TOT_CNT
+</sql>
+
+<query id="paginateCustomers" resultAlias="customer">
+SELECT SQL_CALC_FOUND_ROWS * FROM CUSTOMER
+WHERE CREDIT > #{amount}
+LIMIT #{start}, #{fetch}
+</query>
+
+<query id="getDatasets">
+SELECT SQL_CALC_FOUND_ROWS * FROM CUSTOMER
+WHERE CREDIT > #{amount}
+LIMIT #{start}, #{fetch};
+<sql ref="foundRows"/>
+</query>
+
+<query id="sp_paginate_customers" resultAlias="customer">
+{call sp_paginate_customers(#{amount}, #{start}, #{fetch})}
+</query>
+
+<query id="getProduct">
+SELECT * FROM PRODUCT WHERE PROD_ID = #{prodID}
+</query>
+
+<!--To call a stored procedure with OUT parameters, specify them with 'OUT:' prefix.
+-->
+<query id="sp_paginate_customers_outs">
+{call sp_paginate_customers_outs(#{credit}, #{start}, #{fetch}, #{OUT:totalCount}, #{OUT:queryTime})}
+</query>
+
+<query id="sp_get_outs">
+{call sp_get_outs(#{name}, #{OUT:greeting})}
+</query>
+
+</sqlsheet>
