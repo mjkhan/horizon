@@ -48,7 +48,7 @@ Note that in production environment where a Horizon application is deployed to a
 please see to it whether it already has implementations of dependent APIs available.
 <h4 id="installation">Installation</h4>
 To install Horizon
-<ul><li>Download the <a href="https://sourceforge.net/projects/java-horizon/files/latest/download">Horizon distribution</a>.</li>
+<ul><li><a href="https://sourceforge.net/projects/java-horizon/files/latest/download">Download</a> the <a href="https://sourceforge.net/projects/java-horizon">Horizon distribution</a>.</li>
   <li>Unpack the distribution to any place that suits your need.</li>
 	<li>Add to the CLASSPATH <code>horizon-core-23.02.01.jar</code> and, if necessary, <code>horizon-spring-23.02.01.jar</code> in the <code>lib</code> directory.</li>
 	<li>Write configurations such as dbaccess.xml and/or SQL sheets and add them to the CLASSPATH.</li>
