@@ -81,7 +81,7 @@ $.fn.setCurrentRow = function(val) {
 		var e = $(this);
 		e.find("tr").each(function(){
 			var tr = $(this),
-				current = val == tr.attr("data-key");
+				current = val == tr.attr("data-field");
 			if (current)
 				tr.addClass("current");
 			else

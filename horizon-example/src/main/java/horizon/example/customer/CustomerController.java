@@ -1,5 +1,6 @@
 package horizon.example.customer;
 
+import java.util.Map;
 import java.util.Optional;
 
 import javax.annotation.Resource;
@@ -33,13 +34,17 @@ public class CustomerController extends ExampleController {
 		case "name": columnName = "CUST_NAME"; break;
 		default: columnName = null;
 		}
+
 		DataList<Customer> customers = service.search(columnName, terms, start, fetch);
+		Map<String, Integer> pagination = Map.of(
+			"start", customers.getStart(),
+			"totalSize", customers.getTotalSize(),
+			"fetchSize", fetch
+		);
 
 		return new ModelAndView(json ? "jsonView" : "customer/cust-main")
 			.addObject("custList", json ? customers : toJson(customers))
-			.addObject("totalSize", customers.getTotalSize())
-			.addObject("start", customers.getStart())
-			.addObject("fetch", fetch);
+			.addObject("pagination", json ? pagination : toJson(pagination));
 	}
 
 	@RequestMapping("/select")

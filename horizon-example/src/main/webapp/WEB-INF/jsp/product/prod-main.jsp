@@ -10,44 +10,66 @@
 			</div>
 		</div>
 <script type="text/javascript">
-var prodList = new Dataset({ <%-- Product dataset from querying products --%>
-	keymapper:function(info) {return info ? info.PROD_ID : "";}, <%-- Key to a product data --%>
-	dataGetter:function(obj) {return obj.prodList;} <%-- Extracts product dataset named 'prodList' from the server response --%>
-});
+var prodList = new Dataset({ <%-- dataset from querying products --%>
+		keys:["PROD_ID"] <%-- Used to identify current and/or selected DataItems by the key in prodList.setState() to refresh the current state --%>
+	}),
 
-var productManager = { <%-- Controlls request and response to and from the ProductController. --%>
-	search:function(by, terms, start) {
-		var _search = function(state, prev) {
-			if (prev) {
-				start = (start || 0) - ${fetch};
-			}
-			json({
-				url:"<c:url value='/product'/>",
-				data:{
-					by:by,
-					terms:terms,
-					start:Math.max(start || 0, 0)
+	productManager = { <%-- Controls request and response to and from the ProductController. --%>
+	_params: {
+		by: "",
+		terms: "",
+		start: 0
+	},
+	
+	toProduct: (item) => { <%-- Converts a DataItem to a product --%>
+		let info = item && !item.unreachable ? item.data : null;
+
+		return info ? Object.entries({"id":"PROD_ID", "type":"PROD_TYPE", "name":"PROD_NAME", "vendor":"VENDOR", "unitPrice":"UNIT_PRICE"})
+			.reduce(
+				(obj, entry) => {
+					obj[entry[0]] = info[entry[1]];
+					return obj;
 				},
-				success:resp => {
-					resp.state = state;
-					prodList.setData(resp);
-				}
-			});
-		};
-		<%-- Sets the current search to the reload method --%>
-		productManager.reload = function(prev) {
-			_search(prodList.state, prev);
-		};
+				{}
+			) : null;
+	},
+
+	params: (obj) => { <%-- Sets parameters to search information --%>
+		productManager._params = obj;
+		return productManager;
+	},
+	search:(option) => { <%-- Sends request to search information and receives the response --%>
+		json({
+			url:"<c:url value='/product'/>",
+			data:productManager._params,
+			success:resp => productManager.setData(resp, option)
+		});
+	},
+
+	setData: (obj, option) => { <%-- Sets the query result to prodList via productManager --%>
+		prodList.pagination = obj.pagination;
+		prodList.setData(obj.prodList, option);
+	},
+
+	reload:function(prev){ <%--Reloads information after create, update, or remove requests with the last query terms.--%>
+		if (prev) {
+			let start = (productManager._params.start || 0) - prodList.pagination.fetchSize;
+			productManager._params.start = Math.max(start, 0);
+		}
+		productManager.search({stateful: true}); <%-- To preserve the current state --%>
+	},
+	
+	save:function() {
+		let current = prodList.getCurrent("item");
+		if (!current)
+			return console.log("WARNING", "current item not found");
 		
-		_search();
-	},
-	<%--Reloads product information after create, update, or remove requests with the last query terms.--%>
-	reload:function(prev){
-		productManager.search();
-	},
-	
-	save:ignore,
-	
+		let product = productManager.toProduct(current);
+		
+		return current.isNew() ?
+			productManager.create(product) :
+			productManager.update(product);
+	},	
 	create:function(product) {
 		return new Promise(function(resolve, reject) {
 			json({
@@ -55,14 +77,13 @@ var productManager = { <%-- Controlls request and response to and from the Produ
 				type:"POST",
 				data:product,
 				success:resp => {
-					resolve(resp);
 					if (resp.saved)
 						productManager.reload();
+					resolve(resp);
 				}
 			});
 		});
-	},
-	
+	},	
 	update:function(product) {
 		return new Promise(function(resolve, reject) {
 			json({
@@ -70,32 +91,39 @@ var productManager = { <%-- Controlls request and response to and from the Produ
 				type:"POST",
 				data:product,
 				success:resp => {
-					resolve(resp);
 					if (resp.saved)
 						productManager.reload();
+					resolve(resp);
 				}
 			});
 		});
-	},
-	
+	},	
 	remove:function() {
-		var prodIDs = prodList.getKeys("selected");
-		if (prodIDs.length < 1)
+		let selected = prodList.getItems("selected");
+		if (selected.length < 1)
 			throw "Select products to remove.";
+
 		<%--When all information on the current page is removed
 		information on the previous page is requested. 
 		--%>
-		var prev = prodList.length == prodIDs.length;
+		let prev = prodList.length == selected.length,
+			removed = prodList.remove(selected.map(item => item.index))
+				.getData("removed");
+
+		if (removed.length < 1) <%-- If removed information are all "added" ones --%>
+			return new Promise(function(resolve, reject){
+				resolve({local: true});
+			});
 
 		return new Promise(function(resolve, reject) {
 			json({
 				url:"<c:url value='/product/remove'/>",
 				type:"POST",
-				data:{prodIDs:prodIDs.join(",")},
+				data:{prodIDs: removed.map(data => data.PROD_ID).join(",")},
 				success:resp => {
-					resolve(resp);
 					if (resp.saved)
 						productManager.reload(prev);
+					resolve(resp);
 				}
 			});
 		});
@@ -106,5 +134,5 @@ ${functions} <%--Placeholder for functions and variables from included JSPs--%>
 $(function(){
 	${onload} <%--Placeholder for codes from included JSPs to be executed when the page is ready--%>
 });
-//# sourceURL=prod-main.js
+//# sourceURL=prod-main.jsp
 </script>

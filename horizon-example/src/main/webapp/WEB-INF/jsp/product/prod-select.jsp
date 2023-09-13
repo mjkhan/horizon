@@ -17,8 +17,8 @@
 		</thead>
 		<%-- html for a row of information. See prodList.onDatasetChange(..) below
 		Note that placeholder for properties of data are denoted as '{property name}'. --%>
-		<template id="prodRow"><tr data-key="{PROD_ID}" onclick="prodList.setCurrent({PROD_ID})"><td><a>{PROD_ID}</a></td>
-			<td><a>{PROD_NAME} {PROD_TYPE}</a></td>
+		<template id="prodRow"><tr data-field="{index}" onclick="prodList.setCurrent('{index}')"><td>{PROD_ID}</td>
+			<td>{PROD_NAME} {PROD_TYPE}</td>
 		</tr></template>
 		<%-- html for when no row of information found. See prodList.onDatasetChange(..) below --%>
 		<template id="prodNotFound"><tr><td colspan="2" class="text-center">No product information found.</td>
@@ -30,31 +30,29 @@
 </div>
 <script type="text/javascript">
 var prodList = new Dataset({
-	keymapper:function(info) {return info ? info.PROD_ID : "";},
-	dataGetter:function(obj) {return obj.prodList;},
-	
-	onDatasetChange:resp => {
-		var trs = [document.getElementById("prodNotFound").innerHTML]; <%-- from template#prodNotFound --%>
+	onDatasetChange: dataset => {
+		let trs = [document.getElementById("prodNotFound").innerHTML]; <%-- from template#prodNotFound --%>
 		
-		if (!prodList.empty) {
-			var rowTemplate = document.getElementById("prodRow").innerHTML; <%-- from template#prodRow --%>
-			trs = prodList.inStrings(rowTemplate);
+		if (!dataset.empty) {
+			let rowTemplate = document.getElementById("prodRow").innerHTML; <%-- from template#prodRow --%>
+			trs = dataset.inStrings(rowTemplate);
 		}
 		$("#prod-list").html(trs.join());
-		$("#totalProds").html((resp.totalSize || "No") + " products found");
 		
-		$("#_prod-paging").setPaging({
-			start:resp.start,
-			fetchSize:resp.fetch,
-			totalSize:resp.totalSize,
-			func:"searchProducts({index})"
-		});
+		let pagination = dataset.pagination;
+		pagination.func = "searchProducts({index})";
+		$("#totalProds").html((pagination.totalSize || "No") + " products found");
+		$("#_prod-paging").setPaging(pagination);
 	},
 	onCurrentChange:item => {
-		if (item)
-			$("#prod-list").setCurrentRow(item.getValue("PROD_ID"));
+		$("#prod-list").setCurrentRow(item.index);
 	}
 });
+
+function setProdData(obj) {
+	prodList.pagination = obj.pagination;
+	prodList.setData(obj.prodList);
+}
 
 function searchProducts(start) {
 	json({
@@ -64,7 +62,7 @@ function searchProducts(start) {
 			terms:$(".search-inputs #_terms").val(),
 			start:Math.max(start || 0, 0)
 		},
-		success:resp => prodList.setData(resp)
+		success:resp => setProdData(resp)
 	});
 }
 
@@ -73,11 +71,9 @@ function selectedProduct() {
 	return prodList.getCurrent();
 }
 
-prodList.setData({
-	prodList:${prodList},
-	start:0,
-	fetch:${fetch},
-	totalSize:${totalSize}
+setProdData({
+	prodList: ${prodList},
+	pagination: ${pagination}
 });
 
 $(".search-inputs #_by").change(function(){$(".search-inputs #_terms").focus().select();});

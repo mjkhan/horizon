@@ -44,7 +44,7 @@ ${functions}<%--Placeholder for functions and variables. Intended to place Javas
 $(function(){
 ${onload}<%--Placeholder for codes to execute when the document is loaded. Intended to place Javascript codes at the bottom of the body element--%>
 });
-//# sourceURL=index.js
+//# sourceURL=index.jsp
 </script>
 </body>
 </html>

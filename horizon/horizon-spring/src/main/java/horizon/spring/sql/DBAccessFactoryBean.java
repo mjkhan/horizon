@@ -1,6 +1,7 @@
 package horizon.spring.sql;
 
 import java.io.InputStream;
+import java.sql.Connection;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -42,6 +43,8 @@ public class DBAccessFactoryBean extends AbstractComponent implements FactoryBea
 	private String
 		configLocation,
 		connectionName,
+		catalog,
+		schema,
 		sqlsheetLocations;
 	@Autowired
 	private ResourceLoader resourceLoader;
@@ -64,6 +67,22 @@ public class DBAccessFactoryBean extends AbstractComponent implements FactoryBea
 		this.configLocation = configLocation;
 	}
 
+	/**Sets the catalog name of the database.
+	 * Use this method to set the catalog name if the JDBC driver does not support {@link Connection#getCatalog()}.
+	 * @param catalog catalog name
+	 */
+	public void setCatalog(String catalog) {
+		this.catalog = catalog;
+	}
+
+	/**Sets the schema name of the database
+	 * Use this method to set the schema name if the JDBC driver does not support {@link Connection#getSchema()}.
+	 * @param schema schema name
+	 */
+	public void setSchema(String schema) {
+		this.schema = schema;
+	}
+
 	/**Sets the locations of SQL sheets.
 	 * @param sqlsheetLocations locations of SQL sheets
 	 */
@@ -83,7 +102,9 @@ public class DBAccessFactoryBean extends AbstractComponent implements FactoryBea
 		DBAccess dbaccess = new DBAccess()
 			.setDatasource(datasource)
 			.setConfigLocation(configLocation)
-			.setConnectionName(connectionName);
+			.setConnectionName(connectionName)
+			.setCatalog(catalog)
+			.setSchema(schema);
 		log().trace(() -> dbaccess + " created");
 		return dbaccess;
 	}

@@ -13,7 +13,7 @@
 <packaging>jar</packaging>
 
 <name>horizon-spring</name>
-<url>http://maven.apache.org</url>
+<url>https://github.com/mjkhan/horizon</url>
 
 <properties>
 	<spring.version>5.2.2.RELEASE</spring.version>

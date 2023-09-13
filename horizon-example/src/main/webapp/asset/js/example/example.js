@@ -64,7 +64,7 @@ var dialog = {
 		else {
 			var self = this;
 			ajax({
-				url:"/example/asset/html/dialog.html",
+				url:"/horizon-example/asset/html/dialog.html",
 				success:function(resp) {
 					self.template = resp;
 					self.create(conf);

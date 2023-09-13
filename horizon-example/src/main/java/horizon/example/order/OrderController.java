@@ -29,32 +29,29 @@ public class OrderController extends ExampleController {
 		String columnName = "custName".equals(by) ? "CUST_NAME" : "ORD_DATE";
 
 		Dataset orderList = service.search(columnName, terms, start, fetch);
-		String orderID = !orderList.isEmpty() ? orderList.get(0).string("ORD_ID") : null;
-		ModelAndView mav = getLineItems(orderID, json);
+		Map<String, Integer> pagination = Map.of(
+				"start", orderList.getStart(),
+				"totalSize", orderList.getTotalSize(),
+				"fetchSize", fetch
+			);
 
 		return new ModelAndView(json ? "jsonView" : "order/order-main")
 			.addObject("orderList", json ? orderList : toJson(orderList))
-			.addObject("lineList", mav.getModel().get("lineList"))
-			.addObject("totalSize", orderList.getTotalSize())
-			.addObject("start", orderList.getStart())
-			.addObject("fetch", fetch);
+			.addObject("pagination", json ? pagination : toJson(pagination));
 	}
 
 	@RequestMapping("/lines")
 	public ModelAndView getLineItems(String orderID, boolean json) {
-		ModelAndView mav = new ModelAndView("jsonView");
-		if (!isEmpty(orderID)) {
-			Dataset lineList = service.getLineItems(orderID);
-			mav.addObject("lineList", json ? lineList : toJson(lineList));
-		} else {
-			mav.addObject("lineList", json ? Collections.emptyList() : toJson(Collections.emptyList()));
-		}
-		return mav;
+		List<?> lineList = !isEmpty(orderID) ? service.getLineItems(orderID) : Collections.emptyList();
+
+		return new ModelAndView("jsonView")
+			.addObject("lineList", json ? lineList : toJson(lineList));
 	}
 
 	@PostMapping("/create")
 	public ModelAndView create(@RequestBody SalesOrder order) {
-		return new ModelAndView("jsonView").addAllObjects(service.create(order));
+		return new ModelAndView("jsonView")
+			.addAllObjects(service.create(order));
 	}
 
 	@PostMapping("/update")

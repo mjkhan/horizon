@@ -5,6 +5,8 @@
 		<url>jdbc:mysql://localhost:3306/HRZN_EXAMPLE?characterEncoding=UTF-8&amp;serverTimezone=UTC&amp;allowMultiQueries=true&amp;useSSL=false</url>
 		<username>root</username>
 		<password>mjkhan</password>
+		<catalog></catalog>
+		<schema></schema>
     </jdbc>
 
 <!-- 
@@ -12,6 +14,8 @@
     	<jndi-name>java:/HRZN_EXAMPLE</jndi-name>
     	<transactionManagerName></transactionManagerName>
     	<userTransactionName></userTransactionName>
+		<catalog></catalog>
+		<schema></schema>
     </datasource>
  -->
 

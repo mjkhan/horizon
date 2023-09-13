@@ -130,6 +130,8 @@ public class DBAccess extends AbstractComponent {
 	private String
 		configLocation,
 		connectionName,
+		catalog,
+		schema,
 
 		key,
 		sqlBuilder,
@@ -198,12 +200,53 @@ public class DBAccess extends AbstractComponent {
 		return this;
 	}
 
+	/**Returns the catalog name.
+	 * @return the catalog name
+	 */
+	public String getCatalog() {
+		return catalog;
+	}
+
+	/**Sets the catalog name.<br />
+	 * Use this method to set the catalog name if the JDBC driver does not support {@link Connection#getCatalog()}.
+	 * @param catalog catalog name
+	 * @return this DBAccess
+	 */
+	public DBAccess setCatalog(String catalog) {
+		this.catalog = catalog;
+		return this;
+	}
+
+	/**Returns the schema name.
+	 * @return the schema name
+	 */
+	public String getSchema() {
+		return schema;
+	}
+
+	/**Sets the schema name.<br />
+	 * Use this method to set the schema name if the JDBC driver does not support {@link Connection#getSchema()}.
+	 * @param schema schema name
+	 * @return this DBAccess
+	 */
+	public DBAccess setSchema(String schema) {
+		this.schema = schema;
+		return this;
+	}
+
 	/**Returns the DataSource the DBAccess is associated with.
 	 * @return DataSource the DBAccess is associated with
 	 */
 	public DataSource getDatasource() {
-		return datasource != null ? datasource : (datasource = DatasourceFactory.get(configLocation, connectionName));
-//		return ifEmpty(datasource, () -> datasource = DatasourceFactory.get(configLocation, connectionName));
+		if (datasource != null)
+			return datasource;
+
+		datasource = DatasourceFactory.get(configLocation, connectionName);
+		DatasourceFactory.Config config = DatasourceFactory.config(connectionName);
+		catalog = config.getCatalog();
+		schema = config.getSchema();
+
+		return datasource;
 	}
 
 	/**Sets the datasource to associate with the DBAccess.
@@ -219,7 +262,6 @@ public class DBAccess extends AbstractComponent {
 		}
 		return this;
 	}
-
 
 	Transaction.Factory getTransactionFactory() {
 		return transactionFactory;

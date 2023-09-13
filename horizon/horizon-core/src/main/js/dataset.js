@@ -35,7 +35,7 @@ const numberFormat = {
 /** value format for dates */
 const dateFormat = {
 	/**Formats the value 
-	 * @param {number} value value to format
+	 * @param {(number|Date)} value value to format
 	 * @returns {string} formatted value
 	 */
 	format(value) {
@@ -56,7 +56,7 @@ const dateFormat = {
 /** value format for datetimes */
 const datetimeFormat = {
 	/**Formats the value 
-	 * @param {number} value value to format
+	 * @param {(number|Date)} value value to format
 	 * @returns {string} formatted value
 	 */
 	format(value) {
@@ -65,7 +65,7 @@ const datetimeFormat = {
 	}
 };
 
-/**Manages value formats.
+/**Manages value formats.<br />
  * A value format is an object that has functions
  * <ul>	<li><code>parse(arg)</code> that parses the argument for a value</li>
  *		<li><code>format(arg)</code> that formats the argument to a string</li>
@@ -85,7 +85,7 @@ class ValueFormat {
 	_exprs;
 
 	/**Creates a new ValueFormat.
-	 * @param {object} formats an object whose property names are keys and property values are value formats associated with the keys
+	 * @param {Object} formats an object whose property names are keys and property values are value formats associated with the keys
 	 */
 	constructor(formats) {
 		this._formats = formats || {};
@@ -136,6 +136,8 @@ ValueFormat.InvalidValue = "^invalid^value^";
 /**Wraps a user data and traces the manipulation performed on it and consequent status. 
  */
 class DataItem {
+	/** index of the DataItem */
+	index;
 	/** user data */
 	data;
 	/** value formatters */
@@ -147,7 +149,7 @@ class DataItem {
 	
 	/**Creates a new DataItem.
 	 * @param {any} data user data
-	 * @param {object} formats value formatters of the user data's property
+	 * @param {Object} formats value formatters of the user data's property
 	 */
 	constructor(data, formats) {
 		this.data = data;
@@ -176,6 +178,22 @@ class DataItem {
 		this.selected = arg;
 		return dirty;
 	}
+
+	/**Returns whether the DataItem is new, or the state is "added".
+	 * @returns {boolean} whether the DataItem is new
+	 * <ul><li>true if the DataItem is new</li>
+	 *	   <li>false otherwise</li>
+	 * </ul>
+	 */	
+	isNew() {return "added" == this.state;}
+
+	/**Returns whether the DataItem is empty, or it has no data.
+	 * @returns {boolean} whether the DataItem is empty
+	 * <ul><li>true if the DataItem is empty</li>
+	 *	   <li>false otherwise</li>
+	 * </ul>
+	 */	
+	get empty() {return isEmpty(this.data);}
 
 	/**Returns whether the user data is either created, modified, or removed.
 	 * @returns {boolean}
@@ -206,12 +224,53 @@ class DataItem {
 	toggle() {
 		return this.selected = !this.selected;
 	}
+	
+	/**Replaces the current data with the new data and resets the state. 
+	 * @param {any} data new data
+	 * @returns the DataItem
+	 */
+	replace(data) {
+		this.data = data;
+		this.state = null;
+		return this;
+	}
+	
+	/**Returns the values of the named properties.
+	 * @param {array} names property names
+	 * @returns object with the named properties
+	 */
+	getProperties(names) {
+		let properties = names && names.length > 0 ? names : []; 
+		return properties.reduce((result, prop) => {
+			result[prop] = this.data[prop];
+			return result;
+		}, {});
+	}
+
+	/**Returns whether obj's properties are equal to properties of this.
+	 * @param {object} obj an object
+	 * @returns {boolean}
+	 * <ul><li>true if obj's properties are equal to properties of this</li>
+	 *	   <li>false otherwise</li>
+	 * </ul>
+	 */
+	equalProperties(obj) {
+		if (!obj || Object.keys(obj).length < 1) return false;
+		
+		for (let prop in obj) {
+			if (obj[prop] != this.data[prop])
+				return false;
+		}
+		return true;
+	}
 
 	/**Returns the formatted value of the named property of the user data.
 	 * @param {string} property property name
 	 * @returns {any} formatted value of the named property of the user data
 	 */
 	getValue(property) {
+		if (!this.data) return "";
+		
 		let value = this.data[property];
 		return this._formats.formatter(property)(value);
 	}
@@ -225,554 +284,606 @@ class DataItem {
 	 * </ul>
 	 */
 	setValue(property, value) {
+		if (!this.data) return;
+		
 		let parsed = this._formats.parser(property)(value);
-		if (ValueFormat.InvalidValue != parsed)
+		if (ValueFormat.InvalidValue != parsed) {
 			this.data[property] = parsed;
+		}
 		return parsed;
 	}
 
-	/**Returns a string converted from the template using the property values of the user data.
-	 * In the template, placeholder for the properties of the user data is specified like {property name}.
+	/**Returns a string converted from the template using the properties of the data.
+	 * In the template, placeholder for the properties of the data is specified like {property name}.
 	 * @param {string} template template string
-	 * @returns {string} string converted from the template using the property values of the user data
+	 * @param {function} formatter function of (template, dataItem) => {...; return "...";} that converts custom placeholders of the template 
+	 * @returns {string} string converted from the template using the properties of the data
 	 */
-	inString(template) {
+	inString(template, formatter) {
 		let str = template;
+		if (formatter) {
+			str = formatter(str, this);
+		}
 		for (let p in this.data) {
 			let regexp = this._formats.regexp(p);
 			str = str.replace(regexp, this.getValue(p));
 		}
-		return str;
+		return str.replace(/{index}/gi, this.index);;
 	}
 }
 
-/**Manages user data wrapped in {@link DataItem}s, tracing the state after manipulation performed on them.
- * <p>For a Dataset to work properly, it needs a keymapper to identify user data.
- * And you specify it in a Dataset's configuration.  
- * <pre><code>let dataset = new Dataset({
- *   keymapper: function(info) {return info.keyProperty;},
- *   ...
- * });</code></pre>
- * </p>
- * <p>To help access values of user data, a Dataset offers methods
- * <ul><li>{@link Dataset#getValue}</li>
- *     <li>{@link Dataset#setValue}</li>
+/**Manages user data wrapped in {@link DataItem}s and offers methods to manipulate the data, tracing the state change of the data.<br />
+ * In response to the state change, a Dataset fires events and calls handlers of the events whereby the state change is propagated to UI facilities.
+ * <p>On creation, provide a configuration where you specify
+ * <ul><li>keys of data</li>
+ *     <li>formats</li>
+ *     <li>event handlers</li>
  * </ul>
- * Using value formats configured in the Dataset, the methods return formatted value and sets parsed value.
- * <pre><code>let dataset = new Dataset({
- *   formats: {
- *     numericProperty: {@link numberFormat},
- *     customProperty: {
- *       format(value) {...},
- *       parse(value) {...},
- *     }
- *   },
- *   ...
+ * which are all optional. For example,
+ * <pre><code>let example = new Dataset({
+ *     keys: ["property0", "property1"],
+ *     formats: {
+ *         property2: numberFormat,
+ *         property3: datetimeFormat
+ *     },
+ *     onDatasetChange: (dataset) => {...},
+ *     onCurrentChange: (item) => {...},
+ *     onSelectionChange: (selected) => {...}
  * });</code></pre>
+ * You can also specify the event handlers on the dataset itself.
+ * <pre><code>example.onDatasetChange = (dataset) => {...};
+ * example.onCurrentChange = (item) => {...};
+ * example.onSelectionChange = (selected) => {...};</code></pre> 
  * </p>
- * <p>Working with user data that a Dataset holds, you change the Dataset's state.
- * Depending on the type of change, the Dataset calls back approriate methods.
- * By default, the methods log the content of the change.
+ * <p>You {@link Dataset#setData set data} to the Dataset like
+ * <pre><code>example.setData([...]);</code></pre>
+ * To {@link Dataset#addData append data} to the Dataset
+ * <pre><code>example.addData([...]);</code></pre>
+ * To add data that is new and dirty(see below)
+ * <pre><code>example.addData([...] || {...}, {local: true});</code></pre>
  * </p>
- * <p>To override the behavior of the callback methods,
- * define a function with the same signature as the method to override
- * and assign it to the Dataset's method.
- * <pre><code>let myFunc = obj => {...};
- * let dataset = new Dataset({...});
- * dataset.onDatasetChange = myFunc;</code></pre>
- * You can make it simple like this:
- * <pre><code>let dataset = new Dataset({...});
- * dataset.onDatasetChange = obj => {};</code></pre>
+ * <p>You {@link Dataset#getData get desired data} with 
+ * <pre><code>let filter = ...;
+ * let dataList = example.getData(filter);</code></pre>
+ * For {@link Dataset#getItems desired DataItems},
+ * <pre><code>let dataItems = example.getItems(filter);</code></pre>
+ * To {@link Dataset#getInfo get a single data}
+ * <pre><code>filter = ...;
+ * let result = example.getInfo(filter);</code></pre>
+ * {@link Dataset#getItem For a DataItem},
+ * <pre><code>let item = example.getItem(filter);</code></pre>
  * </p>
- * <p>Or you specify an overriding function in the configuration used to create a Dataset.
- * <pre><code>let dataset = new Dataset({
- *     ...
- *     onDatasetChange:obj => {...}
+ * <p>A <b>current</b> data or DataItem refers to the one that you are now seeing or working on.<br />
+ * To {@link Dataset#setCurrent set a data or DataItem as current}, use the setCurrent(...) method.
+ * <pre><code>example.setCurrent(filter);</code></pre>
+ * To {@link Dataset#getCurrent get a current data or DataItem}, call
+ * <pre><code>let current = example.getCurrent();</code></pre>
+ * Or
+ * <pre><code>let current = example.getCurrent("item");</code></pre>
+ * </p>
+ * <p>You get property values of the Dataset's data in one of the following ways:
+ * <pre><code>let item = example.getItem(filter);
+ * let info = item.data;
+ * let property2 = info.property2;
+ * </code></pre>
+ * <code>item.data</code> refers to the raw data set to the Dataset.
+ * <code>info.property2</code> refers to the raw value of the data's 'property2' property.
+ * To get the {@link DataItem#getValue formatted value}
+ * <pre><code>property2 = item.getValue("property2");</code></pre> 
+ * Or {@link Dataset#getValue likewise with the Dataset}
+ * <pre><code>property2 = example.getValue(filter, "property2");</code></pre> 
+ * </p>
+ * <p><b>Dirty</b> data refer to those that are added, modified, or removed but not yet saved to a storage.
+ * </p>
+ * <p>To change property values of the Dataset's data:
+ * <pre><code>info.property2 = 2000000;</code></pre>
+ * A DataItem can {@link DataItem#setValue parse and set the new value}
+ * <pre><code>item.setValue("property2", "2,000,000");</code></pre>
+ * Although effective, these go unnoticed by the Dataset, which does not fire the relevant events.<br />
+ * To fix this, use the {@link Dataset#serValue Dataset's method}
+ * <pre><code>example.modify(filter, (item) => {
+ *     let info = item.data;
+ *     info.property2 = 2000000;
  * });</code></pre>
+ * Or shortly
+ * <pre><code>example.setValue(filter, "property2", "2,000,000");</code></pre>
+ * The data modified is dirty.
  * </p>
+ * <p>To remove data from a Dataset, call
+ * <pre><code>example.remove(filter);</code></pre>
+ * which leaves the Dataset and removed data dirty.
+ * </p>
+ * <p>To {@link Dataset#select select or unselect data} for further processing, call
+ * <pre><code>example.select(filter);
+ * example.select(filter, false);
+ * </code></pre>
+ * </p>
+ * <p>Use the {@link Dataset#inStrings inStrings(...)} method to convert a Dataset's data to a string representation, typically HTML fragments.</p>
  */
 class Dataset {
-	_items;
-	_byKeys;
-	_current;
-	
-	/**Dataset configuration
-	 */
-	conf;
-	_formats;
-	
 	/**Creates a new Dataset with a configuration.
-	 * The configuration is an object with which you specify
-	 * <ul>	<li>keymapper - function that returns a key of a user data. Used to identify user data in the Dataset. Mandatory.</li>
-	 * 		<li>dataGetter - function that returns an array of user data from an object. Required if the user data are extracted from an object</li>
-	 * 		<li>formats - an object of key-value format pairs where the key corresponds to a property of a user data</li>
-	 * 		<li>functions called back on a Dataset's events of
+	 * @param {Object} conf configuration that specifies
+	 * <ul><li>keys - property names used as keys to find data, optional</li>
+	 *     <li>formats - an object of {"property": valueFormat} pairs where the "property corresponds to a property name of data and value-format to a {@link ValueFormat}</li>
+	 *     <li>event handlers - functions that handles the Dataset's events of
 	 *			<ul><li>{@link Dataset#onDatasetChange onDatasetChange}</li>
 	 *				<li>{@link Dataset#onCurrentChange onCurrentChange}</li>
 	 *				<li>{@link Dataset#onSelectionChange onSelectionChange}</li>
-	 *				<li>{@link Dataset#onAppend onAppend}</li>
 	 *				<li>{@link Dataset#onModify onModify}</li>
-	 *				<li>{@link Dataset#onReplace onReplace}</li>
 	 *				<li>{@link Dataset#onRemove onRemove}</li>
-	 *				<li>{@link Dataset#onErase onErase}</li>
-	 *				<li>{@link Dataset#onDirtiesChange onDirtiesChange}</li>
-	 *			</ul> 
-	 *		</li>
-	 * 		<li>trace - true to enable message logging</li>
-	 * </ul> 
-	 * @param conf {object} configuration
+	 *				<li>{@link Dataset#onDirtyStateChange onDirtyStateChange}</li>
+	 *			</ul>
+	 *          optional
+	 *     </li>
+	 * 	   <li>trace - true to log the events of the Dataset, optional</li>
+	 * </ul>
 	 */
 	constructor(conf) {
 		this._items = [];
-		this._byKeys = {};
 		this._current = null;
-		
-		this.conf = notEmpty(conf, "conf is required but missing");
-		notEmpty(conf.keymapper, "keymapper is required but missing");
-		this._formats = new ValueFormat(conf.formats);
-		
-		if (!conf.trace)
+
+		this.conf = conf || {};
+		this._keys = this.conf.keys || [];
+		this._formats = new ValueFormat(this.conf.formats);
+		this._dirty = false;
+
+		if (!this.conf.trace)
 			this.log = () => {};
 
 		[	"onDatasetChange",
 			"onCurrentChange",
 			"onSelectionChange",
-			"onAppend",
 			"onModify",
-			"onReplace",
 			"onRemove",
-			"onErase",
-			"onDirtiesChange"
+			"onDirtyStateChange"
 		].forEach(on => {
-			let handler = conf[on]
+			let handler = this.conf[on]
 			if (handler && "function" == typeof handler)
 				this[on] = handler;
 		});
 	}
 
-	/**Logs a message to the console.
-	 * @param args arguments to log
-	 */
-	log(...args) {
-		console.log.apply(console, args);
-	}
-
-	/**Returns the key of a user data.
-	 * @param {any|DataItem} info user data or {@link DataItem dataItem} of a user data
-	 * @returns {string} key of a user data
-	 */
-	getKey(info) {
-		let data = info ? info.data || info : null;
-		return data ? this.conf.keymapper(data) : null;
-	}
-
-	/**Returns keys of the Dataset's user data.
-	 * @param {string} status option regarding the Dataset's user data
-	 * <ul>	<li>none to get keys of all user data</li>
-	 *		<li>"selected" to get keys of selected user data</li>
-	 *		<li>"added" to get keys of added user data</li>
-	 *		<li>"modified" to get keys of modified user data</li>
-	 *		<li>"removed" to get keys of removed user data</li>
-	 *		<li>"dirty" to get keys of user data that are {@link Dataset#dirty dirty}</li>
+	/**Returns data or DataItems that matches the filter.
+	 * @param {any} filter filter that tests a data or DataItem to include in the result.
+	 * For filter, you provide
+	 * <ul><li>index or an array of index to DataItems</li>
+	 *     <li>"selected" to get selected data</li>
+	 *     <li>"dirty" to get new, modified or removed data</li>
+	 *     <li>object(s) of key-value pairs matching the properties of the desired data</li>
+	 *     <li>function of (dataItem) => {...; return true||false;} to test a DataItem</li>
 	 * </ul>
-	 * @returns {array} keys of the Dataset's user data.
+	 * Not provided, all data or dataItems are returned.
+	 * @param {string} option "item" to get DataItems, optional.
+	 * <ul><li>none to get data(default)</li>
+	 *     <li>"item" to get DataItems</li>
+	 * </ul>
+	 * @returns {(array|Object)} data or DataItems that matches the filter
+	 * <ul><li>if filter is "dirty", object that holds array of data or DataItems by state</li>
+	 *     <li>otherwise, array of data or DataItems</li>
+	 * </ul>
 	 * @example
-	 * //Other than "dirty" status, keys of user data are returned in an array.
-	 * let array = dataset.getKeys();
-	 * array = dataset.getKeys("selected");
-	 * //With "dirty" status, keys of user data are returned in an object of status-array pairs.
-	 * let dirties = dataset.getKeys("dirty");
-	 * let added = dirties.added;
-	 * let modified = dirties.modified;
-	 * let removed = dirties.removed;
-	 */	
-	getKeys(status){
-		let dataset = this.getDataset(status);
-		if ("dirty" != status)
-			return dataset.map(e => this.getKey(e));
-		
-		let result = {};
-		for (let prop in dataset) {
-			result[prop] = dataset[prop].map(e => this.getKey(e));
+	 * //To get all data
+	 * let datalist = dataset.getData();
+	 * //To get all DataItems
+	 * let dataItems = dataset.getData("item");
+	 * 
+	 * //To get data matching the DataItem's index
+	 * let index = ...; // You get the index from a DataItem like dataItem.index
+	 * dataList = dataset.getData(index);
+	 * dataList = dataset.getData([index, index1]);
+	 * //To get DataItems matching the DataItem's index
+	 * dataItems = dataset.getData(index, "item");
+	 * dataItems = dataset.getData([index, index1], "item");
+	 * 
+	 * //To get selected data
+	 * datalist = dataset.getData("selected");
+	 * //To get selected DataItems
+	 * dataItems = dataset.getData("selected", "item");
+	 * 
+	 * //To get dirty data that are added, modified, or removed
+	 * let dirtyData = dataset.getData("dirty");
+	 * //To get dirty DataItems that are added, modified, or removed
+	 * let dirtyItems = dataset.getData("dirty", "item");
+	 * //The returned dirtyData or dirtyItems are like:
+	 * //{empty:true||false, added:[...], modified:[...], removed:[...]}
+	 * 
+	 * //To get data of particular properties
+	 * datalist = dataset.getData({prop0: "value0", prop1: "value1"});
+	 * datalist = dataset.getData([
+	 *     {prop0: "value0", prop1: "value1"},
+	 *     {prop2: "value2", prop3: "value3"}
+	 * ]);
+	 * //To get DataItems of particular properties
+	 * dataItems = dataset.getData({prop0: "value0", prop1: "value1"}, "item");
+	 * dataItems = dataset.getData([
+	 *     {prop0: "value0", prop1: "value1"},
+	 *     {prop2: "value2", prop3: "value3"}
+	 * ], "item");
+	 * 
+	 * //To get data that matches a custom filter.
+	 * dataList = dataset.getData((item) => {...; return true||false;});
+	 * //To get dataItems that matches a custom filter.
+	 * dataItems = dataset.getData((item) => {...; return true||false;}, "item");
+	 */
+	getData(filter, option) {
+		filter = filter || "all";
+		if (filter == "item") {
+			filter = "all";
+			option = "item";
 		}
-		return result;
+		let filterType = Array.isArray(filter) ? "array" : typeof filter,
+			test = null;
+
+		if ("string" == filterType) {
+			switch (filter) {
+				case "selected": test = item => !item.unreachable && item.selected; break;
+				case "dirty": test = item => item.dirty; break;
+				case "all": test = item => !item.unreachable; break;
+				default: test = item => !item.unreachable && filter == item.index; break;
+			}
+		} else if ("object" == filterType) {
+			test = item => item.equalProperties(filter)
+		} else if ("array" == filterType) {
+			let etype = typeof filter[0];
+			test = item => {
+				if (item.unreachable) return false;
+				
+				switch (etype) {
+					case "string": return filter.includes(item.index);
+					case "object": return filter.reduce((match, properties) => match || item.equalProperties(properties), false);
+					default: return false;
+				}
+			};
+		} else {
+			if ("function" != filterType)
+				throw "filter must be a predicate function";
+			test = filter;
+		}
+
+		let found = (this._items || []).filter(test);
+		if (found.length < 1)
+			return "dirty" != filter ? found: {empty:true, added:[], modified:[], removed:[]};
+
+		if ("dirty" != filter)
+			return "item" == option ? found : found.map(item => item.data);
+
+		return found.reduce(
+			(result, item) => {
+				result[item.state].push("item" == option ? item : item.data);
+				return result; 
+			},
+			{empty:false, added:[], modified:[], removed:[]}
+		);
 	}
 
-	/**Returns user data or dataItem associated with the key.
-	 * @param {string} key key to a user data
-	 * @param {string} option "item" to get the user data in a dataItem.
-	 * @returns {any|DataItem} user data or dataItem associated with the key
-	 * @example
-	 * //To get user data associated with a key
-	 * let data = dataset.getData("key-0");
-	 * //To get the user data in a dataItem
-	 * let dataItem = dataset.getData("key-0", "item");
+	/**Returns DataItems that matches the filter.
+	 * Convenience method for {@link Dataset#getData getData(filter, "item")}
+	 * @param {any} filter see {@link Dataset#getData getData}
+	 * @returns {array} DataItems
 	 */
-	getData(key, option) {
-		let item = this._byKeys["key-" + key];
-		if (!item || item.unreachable)
-			return null;
-		return "item" == option ? item : item.data;
+	getItems(filter) {
+		return this.getData(filter, "item");
 	}
 
-	/**Sets user data to the Dataset.
-	 * To get user data from an object, the dataGetter configured is called.
-	 * After user data is set, the methods
-	 * <ul>	<li>{@link Dataset#onDatasetChange}</li>
-	 *		<li>{@link Dataset#onCurrentChange}</li>
-	 *		<li>{@link Dataset#onSelectionChange}</li>
-	 *		<li>{@link Dataset#onDirtiesChange}</li>
+	/**Returns a DataItem that matches the filter.
+	 * @param {any} filter {@link Dataset#getData filter} that matches to a single item
+	 * @param {boolean} strict true to throw an exception if no item is found with the filter
+	 * @returns {Object} a DataItem
+	 */
+	getItem(filter, strict) {
+		let found = this.getItems(filter || "emptyFilter"),
+			length = !found ? 0 : found.length;
+		if (strict) {
+			if (length < 1)
+				throw "Item not found: " + filter;
+			if (length > 1)
+				throw "Multiple items found: " + filter;
+		}
+		return length > 0 ? found[0] : null;
+	}
+
+	/**Returns a data that matches the filter.
+	 * @param {any} filter {@link Dataset#getData filter} that matches to a single data
+	 * @param {boolean} strict true to throw an exception if no data is found with the filter
+	 * @returns {Object} a DataItem
+	 */
+	getInfo(filter, strict) {
+		let found = this.getItem(filter, strict);
+		return found ? found.data : null;
+	}
+
+	/**Sets data to the Dataset and fires the events of
+	 * <ul><li>{@link Dataset#onDatasetChange onDatasetChange}</li>
+	 *     <li>{@link Dataset#onCurrentChange onCurrentChange}</li>
+	 *     <li>{@link Dataset#onSelectionChange onSelectionChange}</li>
+	 *     <li>{@link Dataset#onDirtyStateChange onDirtyStateChange}</li>
 	 * </ul>
-	 * are called back.
-	 * @param {array|object} obj user data or an object that has user data
-	 * @returns {Dataset} the Dataset
+	 * @param {array} obj  array of data
+	 * @param {Object} option {stateful:true} to keep the previous state, if possible
+	 * @returns {Dataset} this Dataset
 	 */
-	setData(obj) {
-		this._byKeys = {};
+	setData(obj, option) {
+		option = option || {};
+		let state = option.stateful ? this.getState(true) : null;
 		this._current = null;
-		
-		obj = obj || {};
-		let array = Array.isArray(obj) ? obj : this.conf.dataGetter(obj) || [];
-		if (!Array.isArray(array))
-			throw new Error("The data must be an array");
+
+		let empty = !obj,
+			items = !empty ? this._getDataItems(obj, option) : [];
+		this._items = items;
+
+		this.setState(!empty? state : null);
+		this.dirty = false;
+		return this;
+	}
+
+	_getDataItems(obj, option) {
+		let _items = (Array.isArray(obj) ? obj : [obj]).map(e => {
+				let item = new DataItem(e, this._formats);
+				if (option && option.local)
+					item.state = "added";
+				return item;
+			}),
+			_prefix = "ndx-" + new Date().getTime();
 			
-		this._items = array.map(e => new DataItem(e, this._formats));
-		this._items.forEach(item => {
-			let key = "key-" + this.getKey(item.data);
-			this._byKeys[key] = item;
+		_items.forEach((item, index) => {
+			item.index = _prefix + index;
 		});
-		
-		this.onDatasetChange(obj);
-		this.setState(!Array.isArray(obj) ? obj.state : null);
-		this.onDirtiesChange(this.dirty);
-		
-		return this;
+
+		return _items;
 	}
 
-	/**Clears the Dataset's user data.
-	 * @returns {Dataset} the Dataset  
-	 */
-	clear() {
-		this.setData(null);
-		return this;
-	}
-
-	/**Returns the length or count of the Dataset's user data.
-	 * @returns {number} length or count of the Dataset's user data
-	 */
-	get length(){return this.getDataset("item").length;};
-
-	/**Returns whether the Dataset has no user data or not.
-	 * @returns {boolean}
-	 * <ul>	<li>true if the Dataset has no user data</li>
-	 *		<li>false if the Dataset has any user data</li>
+	/**Appends data to the Dataset and fires the events of
+	 * <ul><li>{@link Dataset#onDatasetChange onDatasetChange}</li>
+	 *     <li>{@link Dataset#onCurrentChange onCurrentChange}</li>
+	 *     <li>{@link Dataset#onSelectionChange onSelectionChange}</li>
+	 *     <li>{@link Dataset#onDirtyStateChange onDirtyStateChange}</li>
 	 * </ul>
+	 * @param {array} obj array of data
+	 * @param {Object} option {local:true} to add the data as new and dirty
+	 * @returns {Dataset} this Dataset
 	 */
-	get empty(){
-		return this.length < 1;
+	addData(obj, option) {
+		if (!obj) return this;
+		if (this.empty)
+			return this.setData(obj, option);
+
+		let state = this.getState(),
+			items = this._getDataItems(obj, option);
+
+		this._items = this._items.concat(items);
+		state.currentIndex = items[0].index;
+		this.setState(state);
+		if (option && option.local)
+			this.dirty = true;
+
+		return this;
 	}
 
-	/**Returns the current user data or dataItem.
-	 * @param {string} option "item" to get the current dataItem
-	 * @returns {any|DataItem} current user data or dataItem
-	 * @example
-	 * //To get the current user data
-	 * let current = dataset.getCurrent();
-	 * //To get the current user data in a dataItem
-	 * let current = dataset.getCurrent("item");
+	/**Returns the count of reachable DataItems.
+	 * @returns {number} count of reachable DataItems
 	 */
-	getCurrent(option){
+	get length(){return this.getItems().length;};
+
+	/**Returns whether the Dataset is empty.
+	 * @returns {boolean} whether the Dataset is empty
+	 */
+	get empty(){return this.length < 1;}
+
+	/**Returns the current data or DataItem.
+	 * @param {string} option "item" to get a DataItem
+	 * @returns {any} data or DataItem
+	 */
+	getCurrent(option) {
 		let current = this._current;
 		if (!current || current.unreachable)
 			return null;
 		return "item" == option ? current : current.data;
 	}
 
-	/**Sets the user data as current that is associated with the key.
-	 * @param {string} key key to a user data
-	 * After the data is set, the method 
-	 * <ul>	<li>{@link Dataset#onCurrentChange}</li>
-	 * </ul>
-	 * is called back.
+	/**Sets the DataItem that matches the filter as current
+	 * and fires the {@link Dataset#onCurrentChange onCurrentChange} event.
+	 * @param {any} filter see {@link Dataset#getData}
+	 * @returns {Dataset} this Dataset
 	 */
-	setCurrent(key, fire) {
-		let current = this.getCurrent("item"),
-			item = this.getData(key, "item") || new DataItem({}, this._formats),
+	setCurrent(filter, fire) {
+		let item = this.getItem(filter, true),
+			current = this.getCurrent("item"),
 			diff = current !== item;
-
 		this._current = item;
 
 		if (diff || fire)
 			this.onCurrentChange(item);
+		return this;
 	}
 
-	/**Returns the Dataset's current state in an object.
-	 * The object has the properties as follows.
-	 * <ul>	<li>currentKey - key of the current user data</li>
-	 *		<li>selectedKeys - array of keys to the selected user data</li>
+	/**Scrolls up or down depending on the offset and fires the {@link Dataset#onCurrentChange onCurrentChange} event.
+	 * If the new position surpasses either top or bottom of the Dataset, the first or last DataItem is set current.
+	 * @param {number} offset
+	 * <ul><li>negative integer to scroll up</li>
+	 *     <li>positive integer to scroll down</li>
 	 * </ul>
-	 * @returns {object} Dataset's current state
+	 * @returns {Dataset} this Dataset
 	 */
-	get state() {
-		let empty = this.empty,
-			self = this;
+	scroll(offset) {
+		if (!offset)
+			return this;
+		let items = this.getItems(),
+			length = items.length;
+		if (length < 2)
+			return this;
+		
+		let current = items.indexOf(this.getCurrent("item")),
+			pos = current + offset;
+		pos = offset < 0 ? Math.max(0, pos) : Math.min(length - 1, pos);
+		let item = items[pos];
+		if (!item)
+			return this;
+
+		this.onCurrentChange(this._current = item);
+		
+		return this;
+	}
+
+	/**Returns the current state of the Dataset.
+	 * The state is an object of, by default, index to current and selected DataItems.
+	 * <pre><code>{
+	 *     currentIndex: "ndx-..0",
+	 *     selectedIndex: ["ndx-..1", "ndx-..2", ...]
+	 * }</code></pre>
+	 * With 'asKeys' of true and the 'keys' configured on the Dataset construction,
+	 * keys to current and selected DataItems are provided.
+	 * <pre><code>{
+	 *     asKeys: true,
+	 *     currentKey: {"kep-prop0": "key-value0", "key-prop1": "key-value1"},
+	 *     selectedKeys: [
+	 *         {"kep-prop0": "key-value0-0", "key-prop1": "key-value0-1"},
+	 *         {"kep-prop0": "key-value1-0", "key-prop1": "key-value1-1"},
+	 *         ...
+	 *     ]
+	 * }</code></pre>
+	 * @param {boolean} asKeys
+	 * <ul><li>none or false to get the index to current and selected DataItems</li>
+	 * 	   <li>true to get the keys of DataItems</li>
+	 * </ul>
+	 * @returns {Object} current state
+	 */
+	getState(asKeys) {
+		if (this.empty)
+			return !asKeys ?
+				{currentIndex: null, selectedIndex: []} :
+				{asKeys: true, currentKey: null, selectedKeys: []};
+			
+		let current = this._current,
+			selected = this.getItems("selected"),
+			keys = this._keys;
+			
+		if (!asKeys || keys.length < 1)
+			return {
+				currentIndex: current ?  current.index : null,
+				selectedIndex: selected.map(item => item.index)
+			};
+		
 		return {
-			currentKey:!empty ?  self.getKey(self.getCurrent()) : null,
-			selectedKeys:!empty ? self.getKeys("selected") : []
+			asKeys: true,
+			currentKey: current.getProperties(keys),
+			selectedKeys: selected.map(item => item.getProperties(keys))
 		};
 	}
 
-	/**Sets the state to the Dataset.
-	 * After the state is set, the methods 
-	 * <ul>	<li>{@link Dataset#onCurrentChange}</li>
-	 *		<li>{@link Dataset#onSelectionChange}</li>
+	/**Sets the {@link Dataset#getState state} and fires the events of   
+	 * <ul><li>{@link Dataset#onDatasetChange onDatasetChange}</li>
+	 *     <li>{@link Dataset#onCurrentChange onCurrentChange}</li>
+	 *     <li>{@link Dataset#onSelectionChange onSelectionChange}</li>
 	 * </ul>
-	 * are called back.
-	 * @param {object} state state of the Dataset
-	 * The state is an object of the following properties.
-	 * <ul>	<li>currentKey - key of the current user data</li>
-	 *		<li>selectedKeys - array of keys to the selected user data</li>
-	 * </ul>
-	 * @returns {Dataset} the Dataset
+	 * @param {Object} state a state. Not provided, the current state is used. 
+	 * @returns {Dataset} this Dataset
 	 */
 	setState(state) {
+		this.onDatasetChange(this);
 		if (this.empty) {
-			this.onCurrentChange(null);
+			this.onCurrentChange(new DataItem());
 			this.onSelectionChange([]);
-			this.onDirtiesChange(false);
 		} else {
-			state = state || this.state;
-			let current = this.getData(state.currentKey) || this.getDataset()[0],
-				currentKey = this.getKey(current);
-			this.setCurrent(currentKey, true);
-			this.select(state.selectedKeys || [], true, true);
+			state = state || this.getState();
+			if (state.asKeys) {
+				let found = this.getItem(state.currentKey),
+					selected = this.getItems(state.selectedKeys);
+				state.currentIndex = found ? found.index : null;
+				state.selectedIndex = selected.map(item => item.index);
+			}
+			let current = this.getItem(state.currentIndex) || this.getItems()[0];
+			this.setCurrent(current.index, true);
+			this.select(state.selectedIndex || [], true, true);
 		}
 		return this;
 	}
 
-	/**Returns an array of user data or dataItems.
-	 * @param {string} status
-	 * <ul>	<li>undefined to get all user data</li>
-	 *		<li>"selected" to get selected user data</li>
-	 *		<li>"added" to get added user data</li>
-	 *		<li>"modified" to get modified user data</li>
-	 *		<li>"removed" to get removed user data</li>
-	 *		<li>"dirty" to get dirty user data</li>
-	 * </ul>
-	 * @param {string} option
-	 * <ul>	<li>undefined to get array of user data</li>
-	 *		<li>"item" to get array of dataItems</li>
-	 * </ul>
-	 * @returns {array|object}
-	 * <ul>	<li>array of user data or dataItems</li>
-	 *		<li>with status of "dirty", object of status and array of user data</li>
-	 * </ul>
-	 * @example
-	 * //To get all user data
-	 * let dataList = dataset.getDataset();
-	 * //To get all user data in dataItems
-	 * let dataItems = dataset.getDataset("item");
-	 * //To get selected user data
-	 * let dataList = dataset.getDataset("selected");
-	 * //To get selected user data in dataItems
-	 * let dataItems = dataset.getDataset("selected", "item");
-	 * //To get user data that are either added, modified, or removed
-	 * let dataList = dataset.getDataset("added");
-	 * dataList = dataset.getDataset("modified");
-	 * dataList = dataset.getDataset("removed");
-	 * //To get user data in dataItems that are either added, modified, or removed.
-	 * let dataItems = dataset.getDataset("added", "item");
-	 * dataItems = dataset.getDataset("modified", "item");
-	 * dataItems = dataset.getDataset("removed", "item");
-	 * //To get dirty user data
-	 * let dirties = dataset.getDataset("dirty");
-	 * let added = dirties.added;
-	 * let modified = dirties.modified;
-	 * let removed = dirties.removed;
-	 * //To get dirty user data in dataItems
-	 * let dirties = dataset.getDataset("dirty", "item");
-	 * let added = dirties.added;
-	 * let modified = dirties.modified;
-	 * let removed = dirties.removed;
-	 */
-	getDataset(status, option) {
-		let items = this._items,
-			result = null;
-		if ("item" == status)
-			option = "item";
-		switch (status) {
-			case "selected" : result = items.filter(item => item.selected && !item.unreachable); break;
-			case "added":
-			case "modified":
-			case "removed": result = items.filter(item => status == item.state); break;
-			case "dirty":
-				result = {};
-				items.filter(item => item.dirty)
-					 .forEach(item => {
-					 	let state = item.state,
-					 		array = result[state];
-					 	if (!array)
-					 		result[state] = array = [];
-					 	array.push(item);
-					 });
-				break;
-			case "item":
-			default: result = items.filter(item => !item.unreachable); break;
-		}
-		if ("item" == option)
-			return result;
-			
-		let getData = item => item.data;
-		if ("dirty" != status)
-			return "item" == option ? result : result.map(e => getData(e));
-
-		for (let prop in result) {
-			result[prop] = result[prop].map(e => getData(e));
-		}
-		return result;
-	}
-
-	/**Returns whether the Dataset is dirty.
-	 * A Dataset is dirty if it has user data that is either added, modified, or removed.
-	 * @returns {boolean} whether the Dataset is dirty
-	 * <ul>	<li>true if the Dataset is dirty</li>
-	 *		<li>false otherwise</li>
+	/**Returns whether the Dataset has dirty DataItems.
+	 * @returns {boolean}
+	 * <ul><li>true if the Dataset has dirty DataItems</li>
+	 *     <li>false otherwise</li>
 	 * </ul>
 	 */
 	get dirty() {
-		return this._items
-			.filter(item => item.dirty)
-			.length > 0;
+		this.dirty = !this.getItems("dirty").empty;
+		return this._dirty;
 	}
 
-	/**Selects or unselects user data depending on the arguments.
-	 * After the selection change, the method
-	 * <ul>	<li>{@link Dataset#onSelectionChange}</li>
+	/**Sets whether the Dataset has dirty DataItems
+	 * and fires the {@link Dataset#onDirtyStateChange onDirtyStateChange} event.
+	 * @param {boolean} value
+	 * <ul><li>true if the Dataset has dirty DataItems</li>
+	 *     <li>false otherwise</li>
 	 * </ul>
-	 * is called.
-	 * @example
-	 * //To select a user data
-	 * dataset.select("key0")</code> or <code>dataset.select("key0", true)
-	 * //To select multiple user data
-	 * dataset.select(["key0", "key1"])</code> or <code>dataset.select(["key0", "key1"], true)
-	 * //To select all user data
-	 * dataset.select()</code> or <code>dataset.select(true)
-	 * //To unselect a user data
-	 * dataset.select("key0", false)
-	 * //To unselect multiple user data
-	 * dataset.select(["key0", "key1"], false)
-	 * //To unselect all user data
-	 * dataset.select(false)
+	 */
+	set dirty(value) {
+		if (this._dirty == value) return;
+
+		this.onDirtyStateChange(this._dirty = value);
+	}
+
+	/**Selects or unselects DataItems matching the filter
+	 * and fires the {@link Dataset#onSelectionChange onSelectionChange} event.
+	 * @param {...*} args
+	 * To select DataItems matching the {@link Dataset#getData filter}
+	 * <pre><code>dataset.select(filter)</code></pre>
+	 * To unselect DataItems matching the filter
+	 * <pre><code>dataset.select(filter, false)</code></pre>
+	 * To select the current DataItem
+	 * <pre><code>dataset.select()</code></pre>
+	 * To unselect the current DataItem
+	 * <pre><code>dataset.select(false)</code></pre>
+	 * @returns {boolean} whether selection status has changed
+	 * <ul><li>true if selection status has changed</li>
+	 *     <li>false otherwise</li>
+	 * </ul>
 	 */
 	select(...args) {
 		let arg0 = ifEmpty(args[0], true),
 			arg1 = ifEmpty(args[1], true),
-			dirty = false,
-			fire = false;
+			fire = false,
+			filter = null,
+			selected = null;
 		if ("boolean" == typeof arg0) {
-			for (let i = 0, length = this.length; i < length; ++i) {
-				dirty = this._items[i].select(arg0) || dirty;
-			}
-			fire = args[1];
+			filter = item => true;
+			selected = arg0;
+			fire = arg1;
 		} else {
-			let keys = Array.isArray(arg0) ? arg0 : [arg0];
-			for (let i = 0; i < keys.length; ++i) {
-				let item = this.getData(keys[i], "item");
-				if (item)
-					dirty = item.select(arg1) || dirty;
-			}
+			filter = arg0;
+			selected = arg1;
 			fire = args[2];
 		}
+		let dirty = this.getItems(filter)
+			.reduce(((dirty, item) => item.select(selected) || dirty), false);
 		if (dirty || fire) {
-			this.onSelectionChange(this.getDataset("selected"));
+			this.onSelectionChange(this.getItems("selected"));
 		}
 		return dirty;
 	}
 
-	/**Toggles selection of the user data associated with the key.
-	 * After the selection change, the method
-	 * <ul>	<li>{@link Dataset#onSelectionChange}</li>
-	 * </ul>
-	 * is called.
-	 * @param {string} key key associated with user data
-	 * @returns {boolean} selection status of the user data
-	 * <ul>	<li>true if the user data is selected</li>
-	 *		<li>false otherwise</li>
+	/**Toggles selection of the DataItems matching the filter.
+	 * @param {any} filter see {@link Dataset#getData}
+	 * @returns {boolean} whether selection status has changed
+	 * <ul><li>true if selection status has changed</li>
+	 *     <li>false otherwise</li>
 	 * </ul>
 	 */
-	toggle(key) {
-		let item = this.getData(key, "item"),
-			status = item ? item.toggle() : false;
-		this.onSelectionChange(this.getDataset("selected"));
+	toggle(filter) {
+		let status = this.getItems(filter).reduce(((dirty, item) => item.toggle() || dirty), false);
+		this.onSelectionChange(this.getItems("selected"));
 		return status;
 	}
 
-	/**appends user data to the Dataset.
-	 * After the user data is appended, the methods
-	 * <ul>	<li>{@link Dataset#onAppend}</li>
-	 *		<li>{@link Dataset#onCurrentChange}</li>
-	 *		<li>{@link Dataset#onSelectionChange}</li>
-	 *		<li>{@link Dataset#onDirtiesChange}(if the Dataset gets dirty)</li>
-	 * </ul>
-	 * are called.
-	 * @param data {object|array} user data or array of user data
-	 * @returns the Dataset
+	/**Modifies a DataItem matching the filter and fires the {@link Dataset#onModify onModify} event.
+	 * @param {any} filter {@link Dataset#getData filter} to get a DataItem
+	 * @param {function} modifier function (dataIetm) => {...} that modifies a DataItem's data.
+	 * The function returns ValueFormat.InvalidValue to reject the modification.
+	 * @returns {Dataset} this Dataset
 	 */
-	append(data) {
-		if (!data) return this;
-		
-		let notDirty = !this.dirty,
-			array = Array.isArray(data) ? data : [data];
-		array.forEach(e => {
-			let item = new DataItem(e, this._formats);
-			this._items.push(item);
-			
-			let key = this.getKey(e);
-			this._byKeys["key-" + key] = item;
-			item.state = "added";
-		});
-
-		let state = this.state;
-		this.onAppend(array);
-		state.currentKey = this.getKey(array[array.length - 1]);
-		this.setState(state);
-		
-		if (notDirty)
-			this.onDirtiesChange(true);
-		
-		return this;
-	};
-
-	/**Modifies user data associated with the key using the modifier.
-	 * After user data modification, the methods
-	 * <ul>	<li>{@link Dataset#onModify}</li>
-	 *		<li>{@link Dataset#onDirtiesChange}(if the Dataset gets dirty)</li>
-	 * </ul>
-	 * are called.
-	 * @param {string} key key to a Dataset's user data
-	 * @param {function} modifier function that modifies the user data.
-	 * The function must have a sigunature that accepts a DataItem.
-	 * If the modification fails, it must return ValueFormat.InvalidValue.
-	 * @returns the Dataset
-	 * @example
-	 * let v = ...;
-	 * let modifier = (dataItem) => {
-	 *   if (v !== ...)
-	 *     return ValueFormat.InvalidValue;
-	 *   let data = dataItem.data;
-	 *   data.prop = v;
-	 * };
-	 * ...
-	 * dataset.modify("key0", modifier);
-	 */
-	modify(key, modifier) {
+	modify(filter, modifier) {
 		if (!modifier) return this;
-		
-		let item = this.getData(key, "item");
-		if (!item)
-			throw new Error("Item not found with " + key);
-		
-		let notDirty = !this.dirty,
+
+		let item = this.getItem(filter, true),
 			data = item.data,
 			prev = Object.assign({}, data),
 			modifiedProps = (prev, data) => {
@@ -794,8 +905,8 @@ class Dataset {
 			if (!item.state)
 				item.state = "modified";
 			this.onModify(changed, item, current);
-			if (notDirty)
-				this.onDirtiesChange(true);
+//			this.setState();
+			this.dirty = true;
 		} else if (revert) {
 			this.onModify(Object.getOwnPropertyNames(data), item, current);
 		}
@@ -803,314 +914,158 @@ class Dataset {
 		return this;
 	}
 
-	/**Replaces the Dataset's user data with the replacement.
-	 * After replacement, the methods
-	 * <ul>	<li>{@link Dataset#onReplace}</li>
-	 *		<li>{@link Dataset#onDirtiesChange}(if the Dataset gets dirty or not dirty)</li>
+	/**Removes the DataItems matching the filter and fires the events of
+	 * <ul><li>{@link Dataset#onRemove onRemove}</li>
+	 *     <li>{@link Dataset#onDatasetChange onDatasetChange}</li>
+	 *     <li>{@link Dataset#onCurrentChange onCurrentChange}</li>
+	 *     <li>{@link Dataset#onSelectionChange onSelectionChange}</li>
 	 * </ul>
-	 * are called.
-	 * @param {object|array} replacement
-	 * replacement is an object or an array of objects of the following properties.
-	 * <ul>	<li>key - key to the user data to be replaced</li>
-	 *		<li>data - new user data</li>
-	 * </ul>
-	 * @returns {Dataset} the Dataset
-	 * @example
-	 * //To replace old-keyed user data with new-keyed user data.
-	 * dataset.replace({key:"old-key", data:{id:"new-key", ...}});
-	 * //or
-	 * dataset.replace([
-	 *	{key:"old-key0", data:{id:"new-key0", ...}},
-	 *	{key:"old-key1", data:{id:"new-key1", ...}},
-	 * ]);
-	 * //To replace user data with equal-keyed user data
-	 * dataset.replace({data:{id:"key0", ...}});
-	 * //or
-	 * dataset.replace([
-	 *	{data:{id:"key0", ...}},
-	 *	{data:{id:"key1", ...}},
-	 * ]);
+	 * @param filter see {@link Dataset#getData}
+	 * @returns {Dataset} this Dataset
 	 */
-	replace(replacement) {
-		if (isEmpty(replacement)) return this;
-		
-		let before = this.dirty,
-			replacements = Array.isArray(replacement) ? replacement : [replacement],
-			replacing = [];
-		replacements.forEach(obj => {
-			let data = obj.data;
-			if (!data) return;
-			
-			let	key = obj.key || this.getKey(data);
-			if (!key) return;
-			
-			let oldItem = this.getData(key, "item"),
-				newItem = new DataItem(data, this._formats),
-				pos = oldItem ? this._items.indexOf(oldItem) : -1;
-			
-			newItem.selected = oldItem && oldItem.selected;	
-			if (pos > -1)
-				this._items[pos] = newItem;
-			else
-				this._items.push(newItem);
-			
-			delete this._byKeys["key-" + key];
-			this._byKeys["key-" + this.getKey(data)] = newItem;
-			
-			if (this._current == oldItem)
-				this._current = newItem;
+	remove(filter) {
+		if (!filter || this.empty) return this;
 
-			replacing.push(newItem);
-		});
-		this.onReplace(replacing);
-		let after = this.dirty;
-		if (before != after)
-			this.onDirtiesChange(after);
-
-		return this;
-	}
-
-	/**Removes user data associated with the key.
-	 * After user data removal, the methods
-	 * <ul>	<li>{@link Dataset#onRemove}</li>
-	 *		<li>{@link Dataset#onCurrentChange}</li>
-	 *		<li>{@link Dataset#onSelectionChange}</li>
-	 *		<li>{@link Dataset#onDirtiesChange}(if the Dataset gets dirty or not dirty)</li>
-	 * </ul>
-	 * are called.
-	 * @param {string|array} key key or keys to user data
-	 * @returns {Dataset} the Dataset
-	 * @example
-	 * dataset.remove("key0");
-	 * dataset.remove(["key0", "key1"]);
-	 */
-	remove(key) {
-		if (!key || this.empty) return this;
-		
-		let before = this.dirty,
-			keys = Array.isArray(key) ? key : [key],
-			removed = this._items.filter(item => {
-				let k = this.getKey(item.data),
-					remove = keys.includes(k);
-				if (remove) {
+		let state = this.getState(),
+			current = this.getCurrent("item"),
+			currentPos = this.getItems().indexOf(current),
+			removed = this.getItems(filter)
+				.map(item => {
 					item.state = "added" == item.state ? "ignore" : "removed";
-				}
-				return remove;
-			}),
-			currentPos = this._items.indexOf(this._current),
-			state = this.state;
-			
-		if (currentPos > -1) {
-			let newKey = null;
-			for (let i = currentPos, length = this._items.length; i < length; ++i) {
-				let item = this._items[i];
-				if (item.unreachable) continue;
-				
-				newKey = this.getKey(item);
-				break;
-			}
-			if (!newKey)
-				for (let i = this._items.length - 1; i > 0; --i) {
-					let item = this._items[i];
-					if (item.unreachable) continue;
-					
-					newKey = this.getKey(item);
-					break;
-				}
-			state.currentKey = newKey;
+					return item;
+				});
+		if (removed.length < 1) return this;
+		
+		if (removed.includes(current)) {
+			let rest = this.getItems(),
+				newPos = Math.min(currentPos, rest.length - 1);
+			state.currentIndex = newPos < 0 ? null : rest[newPos].index;
 		}
+		
 		this.onRemove(removed);
 		this.setState(state);
-		let after = this.dirty;
-		if (before != after)
-			this.onDirtiesChange(after);
+		this.dirty = true;
 		
 		return this;
 	}
 
-	/**Erases user data associated with the key.
-	 * After user data removal, the methods
-	 * <ul>	<li>{@link Dataset#onErase}</li>
-	 *		<li>{@link Dataset#onCurrentChange}</li>
-	 *		<li>{@link Dataset#onSelectionChange}</li>
-	 *		<li>{@link Dataset#onDirtiesChange}(if the Dataset gets dirty or not dirty)</li>
+	/**Empties the Dataset and fires the events of
+	 * <ul><li>{@link Dataset#onDatasetChange onDatasetChange}</li>
+	 *     <li>{@link Dataset#onCurrentChange onCurrentChange}</li>
+	 *     <li>{@link Dataset#onSelectionChange onSelectionChange}</li>
 	 * </ul>
-	 * are called.
-	 * Note that unlike {@link Dataset#remove} this method deletes user data completely from the Dataset
-	 * and the erased user data are not traced as dirty user data.  
-	 * @param {string|array} key key or keys to user data
-	 * @returns {Dataset} the Dataset
-	 * @example
-	 * dataset.erase("key0");
-	 * dataset.erase(["key0", "key1"]);
+	 * @returns {Dataset} this Dataset 
 	 */
-	erase(key) {
-		if (!key || this.empty) return;
-		
-		let before = this.dirty,
-			keys = Array.isArray(key) ? key : [key],
-			erased = this._items.filter(item => {
-				let k = this.getKey(item.data),
-					erase = keys.indexOf(k) > -1;
-				if (erase) {
-					delete this._byKeys["key-" + k];
-				}
-				return erase;
-			});
-		
-		let	currentPos = erased.indexOf(this._current) > -1 ? this._items.indexOf(this._current) : -1,
-			state = this.state;
-			
-		if (currentPos > -1) {
-			let newKey = null;
-			for (let i = currentPos + 1, length = this._items.length; i < length; ++i) {
-				let item = this._items[i];
-				if (item.unreachable || erased.includes(item)) continue;
-				
-				newKey = this.getKey(item);
-				break;
-			}
-			if (!newKey)
-				for (let i = this._items.length - 1; i > 0; --i) {
-					let item = this._items[i];
-					if (item.unreachable || erased.includes(item)) continue;
-					
-					newKey = this.getKey(item);
-					break;
-				}
-			state.currentKey = newKey;
-		}
-		this._items = this._items.filter(function(item){return !erased.includes(item);});
-
-		this.onErase(erased);
-		this.setState(state);
-		let after = this.dirty;
-		if (before != after)
-			this.onDirtiesChange(after);
+	clear() {
+		this.setData(null);
+		return this;
 	}
 
-	/**Returns an array of strings converted from the template using the property values of the Dataset's user data.
-	 * In the template, placeholder for the properties of the user data is specified like {property name}.
+	/**Returns an array of strings converted from the template using the properties of the Dataset's data.
+	 * In the template, placeholder for the properties of the data is specified like {property name}.
 	 * @param {string} template template string
-	 * @returns {array} array of strings converted from the template using the property values of the user data
+	 * @param {function} formatter function of (template, dataItem) => {...; return "...";} that converts custom placeholders of the template 
+	 * @returns {array} array of strings converted from the template using the properties of the Dataset
 	 */
-	inStrings(template) {
-		return this.getDataset("item")
-			.map(item => item.inString(template));
+	inStrings(template, formatter) {
+		return this.getItems()
+			.map(item => item.inString(template, formatter));
 	}
 
-	/**Returns a property value of user data.
-	 * If a value format is associated with the property, the value is formatted.
-	 * @param args See the example
-	 * @returns {any|string} property value of a user data
-	 * @example
-	 * //To get a property value of user data associated with a key
-	 * let value = dataset.getValue("key0", "property0");
-	 * //To get a property value of current user data
-	 * let value = dataset.getValue("property0");
+	/**Returns the formatted value of the named property of a DataItem's data.
+	 * @param {...*} args
+	 * To get a property value of a DataItem matching a {@link Dataset#getData filter}
+	 * <pre><code>let val = dataset.getValue(filter, "propertyName");</code></pre>
+	 * To get a property value of the current DataItem
+	 * <pre><code>let val = dataset.getValue("propertyName");</code></pre>
+	 * @returns {any} formatted value of the named property of a DataItem's data
 	 */
 	getValue(...args) {
-		let key = null,
+		let item = null,
 			property = null;
 		switch (args.length) {
 		case 1:
-			key = this.getKey(this.getCurrent());
+			item = this.getCurrent("item");
 			property = args[0];
 			break;
 		case 2:
-			key = args[0];
+			item = this.getItem(args[0]);
 			property = args[1];
 			break;
 		default: return null;
 		}
-		
-		let item = this.getData(key, "item");
-		return item ? item.getValue(property) : undefined;
+		return item ? item.getValue(property) : "";
 	}
 
-	/**Sets a value to a property of user data.
-	 * If a value format is associated with the property, the value is parsed before setting to user data.
-	 * After setting the value, the methods
-	 * <ul>	<li>{@link Dataset#onModify}</li>
-	 *		<li>{@link Dataset#onDirtiesChange}(if the Dataset gets dirty)</li>
-	 * </ul>
-	 * are called.
-	 * @param args See the example
-	 * @example
-	 * //To set a value to a property of user data associated with a key
-	 * dataset.setValue("key0", "property0", "value0");
-	 * //To set a value to a property of current user data
-	 * dataset.setValue("property0", "value0");
+	/**Parses and sets a value to the named property of a DataItem's data,
+	 * which fires the {@link Dataset#onModify onModify} event.
+	 * @param {...*} args
+	 * To set a property value to a DataItem matching a {@link Dataset#getData filter}
+	 * <pre><code>dataset.setValue(filter, "propertyName", "propertyValue");</code></pre>
+	 * To set a property value to the current DataItem
+	 * <pre><code>dataset.setValue("propertyName", "propertyValue");</code></pre>
+	 * @returns {Dataset} this Dataset
 	 */
 	setValue(...args) {
-		let key = null,
+		let filter = null,
 			property = null, 
 			value = null;
 		switch (args.length) {
 		case 2:
-			key = this.getKey(this.getCurrent());
+			let item = this.getCurrent("item");
+			if (!item) {
+				this.log("WARNING", "Current item is missing");
+				return this;
+			}
+			filter = item.index;
 			property = args[0];
 			value = args[1];
 			break;
 		case 3:
-			key = args[0];
+			filter = args[0];
 			property = args[1];
 			value = args[2];
 			break;
 		default: return this;
 		}
-		return this.modify(key, function(item){
+		return this.modify(filter, function(item){
 			return item.setValue(property, value);
 		});
 	}
 
-	/**Called back when user data are set.
-	 * @param {object|array} obj object that has user data or an array of user data
-	 */
-	onDatasetChange(obj) {this.log("Dataset changed", obj);}
-	
-	/**Called back when current user data is changed.
-	 * @param {DataItem} currentItem current dataItem
-	 */
-	onCurrentChange(currentItem) {this.log("Current changed", currentItem);}
+	log(...args) {
+		console.log.apply(console, args);
+	}
 
-	/**Called back when user data selection changes.
-	 * @param {array} selected array of selected user data 
+	/**Handler called back on the dataset change event.
+	 * @param {Dataset} dataset this Dataset
+	 */
+	onDatasetChange(dataset) {this.log("Dataset changed", dataset);}
+
+	/**Handler called back on the current change event.
+	 * @param {DataItem} item current DataItem
+	 */
+	onCurrentChange(item) {this.log("Current changed", item);}
+
+	/**Handler called back on the selection change event
+	 * @param {array} selected selected DataItems
 	 */
 	onSelectionChange(selected) {this.log("Selection changed", selected);}
 
-	/**Called back when user data is appended.
-	 * @param {object|array} appended user data or array of user data 
-	 */
-	onAppend(appended) {this.log("Data appended", appended);}
-
-	/**Called back when user data is modified.
-	 * @param {array} props names of changed properties 
-	 * @param {DataItem} modified modified user dataItem
-	 * @param {boolean} current whether current user data is modified
+	/**Handler called back on the modify event.
+	 * @param {array} props names of modified properties
+	 * @param {DataItem} modified modified DataItem
+	 * @param {boolean} current whether the current DataIetm is modified
 	 */
 	onModify(props, modified, current) {this.log("Data modified", props, modified, current ? "current" : "");}
 
-	/**Called back when user data are replaced.
-	 * @param {array} replacing array of user dataItems replacing the old ones 
+	/**Handler called back on the remove event.
+	 * @param {array} removed removed DataItems
 	 */
-	onReplace(replacing) {this.log("Data replaced", replacing);}
+	onRemove(removed) {this.log("Data removed", removed);}
 
-	/**Called back when user data are removed.
-	 * @param {array} removed array of removed dataItems 
+	/**Handler called back on the dirty state change event.
+	 * @param {boolean} dirty dirty state
 	 */
-	onRemove(removed) {this.log("Data removed", removed)}
-
-	/**Called back when user data are erased.
-	 * @param {array} erased array of erased dataItems 
-	 */
-	onErase(erased) {this.log("Data erased", erased)}
-
-	/**Called back when the Dataset gets dirty or not dirty.
-	 * @param {boolean} dirty 
-	 * <ul>	<li>true if the Dataset is dirty</li>
-	 *		<li>false otherwise</li>
-	 * </ul>
-	 */
-	onDirtiesChange(dirty){this.log("Dirties change", dirty);}
+	onDirtyStateChange(dirty) {this.log("Dirty state changed", dirty);}
 }

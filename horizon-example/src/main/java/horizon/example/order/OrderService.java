@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 
 import horizon.data.DataObject;
 import horizon.data.Dataset;
-import horizon.data.StringMap;
 import horizon.example.ExampleService;
 
 @Service("orderService")
@@ -44,11 +43,12 @@ public class OrderService extends ExampleService {
 			  + dbaccess.update().create(order.getLineItems());
 
 			String orderID = order.getId();
-			return new StringMap<>()
-				.set("affected", affected)
-				.set("saved", affected > 0)
-				.set("orderInfo", getOrderInfo(orderID))
-				.set("lineList", getLineItems(orderID));
+			return Map.of(
+				"affected", affected,
+				"saved", affected > 0,
+				"orderInfo", getOrderInfo(orderID),
+				"lineList", getLineItems(orderID)
+			);
 		});
 	}
 
@@ -66,11 +66,12 @@ public class OrderService extends ExampleService {
 			  + dbaccess.update().delete(lineItems.get("removed"));
 
 			String orderID = order.getId();
-			return new StringMap<>()
-				.set("affected", affected)
-				.set("saved", affected > 0)
-				.set("orderInfo", getOrderInfo(orderID))
-				.set("lineList", getLineItems(orderID));
+			return Map.of(
+				"affected", affected,
+				"saved", affected > 0,
+				"orderInfo", getOrderInfo(orderID),
+				"lineList", getLineItems(orderID)
+			);
 		});
 	}
 

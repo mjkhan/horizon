@@ -177,20 +177,23 @@ function validInput(input, failureHandler) {
 	let validity = input.validity;
 	if (validity && validity.valid) return true;
 
-	for (let key in validity) {
-		if (!validity[key]) continue;
-
-		if (!failureHandler)
-			failureHandler = validationFailureHandler();
-		let handler = failureHandler[key];
-		if (handler)
-			handler(input);
-		else {
-			console.log("Handler not found for validation failure of " + key);
+	if (input instanceof Validity) {
+		input._onFailure(input);
+	} else {
+		for (let key in validity) {
+			if (!validity[key]) continue;
+	
+			if (!failureHandler)
+				failureHandler = validationFailureHandler();
+			let handler = failureHandler[key];
+			if (handler)
+				handler(input);
+			else {
+				console.log("Handler not found for validation failure of " + key);
+			}
+			break;
 		}
-		break;
 	}
-
 	return false;
 }
 

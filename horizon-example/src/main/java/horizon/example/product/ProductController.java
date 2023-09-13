@@ -1,5 +1,7 @@
 package horizon.example.product;
 
+import java.util.Map;
+
 import javax.annotation.Resource;
 
 import org.springframework.stereotype.Controller;
@@ -31,13 +33,17 @@ public class ProductController extends ExampleController {
 		case "name": columnName = "PROD_NAME"; break;
 		default: columnName = null;
 		}
+
 		Dataset dataset = service.search(columnName, terms, start, fetch);
+		Map<String, Integer> pagination = Map.of(
+			"start", dataset.getStart(),
+			"totalSize", dataset.getTotalSize(),
+			"fetchSize", fetch
+		);
 
 		return new ModelAndView(json ? "jsonView" : "product/prod-main")
 			.addObject("prodList", json ? dataset : toJson(dataset))
-			.addObject("start", dataset.getStart())
-			.addObject("totalSize", dataset.getTotalSize())
-			.addObject("fetch", fetch);
+			.addObject("pagination", json ? pagination : toJson(pagination));
 	}
 
 	@RequestMapping("/select")

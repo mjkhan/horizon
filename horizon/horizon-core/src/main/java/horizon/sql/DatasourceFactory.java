@@ -115,7 +115,9 @@ class DatasourceFactory extends AbstractComponent {
 			dbmsProductName,
 			dbmsProductVersion,
 			driverName,
-			driverVersion;
+			driverVersion,
+			catalog,
+			schema;
 
 		public String getName() {
 			return name;
@@ -150,6 +152,34 @@ class DatasourceFactory extends AbstractComponent {
 
 		public String getDriverVersion() {
 			return driverVersion;
+		}
+
+		/**Returns the catalog.
+		 * @return the catalog
+		 */
+		public String getCatalog() {
+			return catalog;
+		}
+
+		/**Sets catalog to the catalog.
+		 * @param catalog the catalog to set
+		 */
+		public void setCatalog(String catalog) {
+			this.catalog = catalog;
+		}
+
+		/**Returns the schema.
+		 * @return the schema
+		 */
+		public String getSchema() {
+			return schema;
+		}
+
+		/**Sets schema to the schema.
+		 * @param schema the schema to set
+		 */
+		public void setSchema(String schema) {
+			this.schema = schema;
 		}
 
 		public abstract DataSource create();
@@ -248,6 +278,8 @@ class JDBConnection extends AbstractComponent implements DataSource {
 					.setUrl(xml.childContent(jdbc, "url"))
 					.setUsername(xml.childContent(jdbc, "username"))
 					.setPassword(xml.childContent(jdbc, "password"));
+				conf.setCatalog(xml.childContent(jdbc, "catalog"));
+				conf.setSchema(xml.childContent(jdbc, "schema"));
 				result.add(conf);
 			}
 			return result;
@@ -258,7 +290,6 @@ class JDBConnection extends AbstractComponent implements DataSource {
 			url,
 			username,
 			password;
-
 		public Conf setDriver(String driver) {
 			this.driver = driver;
 			return this;
@@ -382,6 +413,8 @@ class JNDIConnection extends AbstractComponent implements DataSource {
 				conf.jndiName = xml.childContent(datasource, "jndi-name");
 				conf.transactionManagerName = xml.childContent(datasource, "transactionManagerName");
 				conf.userTransactionName = xml.childContent(datasource, "userTransactionName");
+				conf.setCatalog(xml.childContent(datasource, "catalog"));
+				conf.setSchema(xml.childContent(datasource, "schema"));
 				result.add(conf);
 			}
 			return result;

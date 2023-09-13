@@ -20,7 +20,7 @@
 		</thead>
 		<%-- html for a row of information. See custList.onDatasetChange(..) below
 		Note that placeholder for properties of data are denoted as '{property name}'. --%>
-		<template id="custRow"><tr data-key="{id}" onclick="custList.setCurrent('{id}')"><td>{id}</td>
+		<template id="custRow"><tr data-field="{index}" onclick="custList.setCurrent('{index}')"><td>{id}</td>
 			<td>{name}</td>
 		</tr></template>
 		<%-- html for when no row of information found. See custList.onDatasetChange(..) below --%>
@@ -31,30 +31,29 @@
 </div>
 <script type="text/javascript">
 var custList = new Dataset({
-	keymapper:function(info) {return info ? info.id : "";},
-	dataGetter:function(obj) {return obj.custList;},
-	
-	onDatasetChange:function(resp){
-		var trs = [document.getElementById("custNotFound").innerHTML]; <%-- from template#custNotFound --%>
+	onDatasetChange: dataset => {
+		let trs = [document.getElementById("custNotFound").innerHTML]; <%-- from template#custNotFound --%>
 			
-		if (!custList.empty) {
-			trs = custList.inStrings(document.getElementById("custRow").innerHTML); <%-- from template#custRow --%>
+		if (!dataset.empty) {
+			trs = dataset.inStrings(document.getElementById("custRow").innerHTML); <%-- from template#custRow --%>
 		}
 		$("#cust-list").html(trs.join());
-		$("#totalCusts").html((resp.totalSize || "No") + " customers found");
 		
-		$("#_cust-paging").setPaging({
-			start:resp.start,
-			fetchSize:resp.fetch,
-			totalSize:resp.totalSize,
-			func:"searchCustomers({index})"
-		});
+		let pagination = dataset.pagination;
+		pagination.func = "searchCustomers({index})";
+		$("#totalCusts").html((pagination.totalSize || "No") + " customers found");
+		
+		$("#_cust-paging").setPaging(pagination);
 	},
 	onCurrentChange:function(item){
-		if (item)
-			$("#cust-list").setCurrentRow(item.getValue("id"));
+		$("#cust-list").setCurrentRow(item.index);
 	}
 });
+
+function setCustData(obj) {
+	custList.pagination = obj.pagination;
+	custList.setData(obj.custList);
+}
 
 function searchCustomers(start) {
 	json({
@@ -65,7 +64,7 @@ function searchCustomers(start) {
 			start:Math.max(start || 0, 0),
 			json:true
 		},
-		success:resp => custList.setData(resp)
+		success:resp => setCustData(resp)
 	});
 }
 
@@ -74,11 +73,9 @@ function selectedCustomer() {
 	return custList.getCurrent();
 }
 
-custList.setData({
+setCustData({
 	custList:${custList},
-	start:0,
-	fetch:${fetch},
-	totalSize:${totalSize}
+	pagination:${pagination}
 });
 
 $(".search-inputs #_by").change(function(){$(".search-inputs #_terms").focus().select();});

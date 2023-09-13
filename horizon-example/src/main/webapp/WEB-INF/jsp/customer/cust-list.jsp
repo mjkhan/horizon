@@ -25,10 +25,13 @@
 						</tr>
 					</thead>
 					<%-- html for a row of information. See custList.onDatasetChange(..) below.
-					Note that placeholder for properties of data are denoted as '{property name}'. --%>
-					<template id="row"><tr data-key="{id}"><td><input name="custID" value="{id}" type="checkbox" onchange="custList.select('{id}', this.checked);"/></td>
-						<td><a onclick="custList.setCurrent('{id}')">{id}</a></td>
-						<td><a onclick="custList.setCurrent('{id}')">{name}</a></td>
+					Specify the 'data-field' attribute on elements bound to properties of information.
+					Note that placeholder for properties of data are denoted as '{property name}'.
+					Like {onclick}, you can also specify placeholder for custom processing.
+					--%>
+					<template id="row"><tr data-field="{index}"><td><input name="custIndex" value="{index}" type="checkbox" onchange="custList.select('{index}', this.checked);"/></td>
+						<td {onclick}>{id}</td>
+						<td {onclick}>{name}</td>
 					</tr></template>
 					<%-- html for when no row of information found. See custList.onDatasetChange(..) below --%>
 					<template id="notFound"><tr><td colspan="3" class="text-center">No customer information found.</td></tr></template>
@@ -43,58 +46,50 @@ function searchCustomers(start) {
 	&& !confirm("Do you wish to disregard the change made to customer information?")) return;
 	
 	$("#custToggler").prop("checked", false);
-	customerManager.search(
-		$(".search-inputs #by").val(),
-		$(".search-inputs #terms").val(),
-		start || 0
-	);
+	
+	customerManager
+		.params({
+			by: $(".search-inputs #by").val(),
+			terms: $(".search-inputs #terms").val(),
+			start: start || 0
+		})
+		.search();
 }
 
-function drawCustList() {
+custList.onDatasetChange = dataset => { <%-- called when data is set to custList --%>
 	var trs = [document.getElementById("notFound").innerHTML]; <%-- from template#notFound --%>
 		
 	<%-- Query result is populated to the table --%>
 	if (!custList.empty) {
-		trs = custList.inStrings(document.getElementById("row").innerHTML); <%-- from template#row --%>
+		trs = custList.inStrings(
+			document.getElementById("row").innerHTML, <%-- from template#row --%>
+			(template, item) => {
+				return template.replace(/{onclick}=""/gi, "onclick=\"custList.setCurrent('{index}');\"")
+			}
+		); 
 	}
 	$("#cust-list").html(trs.join());
-}
-
-custList.onDatasetChange = function(resp) { <%-- called when data is set to custList --%>
-	drawCustList();
-	$("#totalCusts").html((resp.totalSize || "No") + " customers found");
+	
+	let pagination = dataset.pagination;
+	pagination.func = "searchCustomers({index})";
+	$("#totalCusts").html((pagination.totalSize || "No") + " customers found");
 	
 	<%-- Pagination links are set. See header.jsp. --%>
-	$(".paging").setPaging({
-		start:resp.start,
-		fetchSize:resp.fetch,
-		totalSize:resp.totalSize,
-		func:"searchCustomers({index})"
-	});
+	$(".paging").setPaging(pagination);
 };
 
-custList.onAppend = drawCustList; <%--called when a new info is added to custList--%>
-
-custList.onSelectionChange = function(selected) { <%--called when the user (un)checks customer information--%>
+custList.onSelectionChange = function(selected) { <%--called when the user (un)selects information--%>
 	<%-- Sets the checkboxes --%>
-	var selectedKeys = selected.map(e => custList.getKey(e));
-	$("#cust-list input[name='custID']").each(function(){
+	var selectedIndex = selected.map(e => e.index);
+	$("#cust-list input[name='custIndex']").each(function(){
 		var checkbox = $(this),
 			value = checkbox.val();
-		checkbox.prop("checked", selectedKeys.indexOf(value) > -1);
+		checkbox.prop("checked", selectedIndex.includes(value));
 	});
 
 	<%-- Enables or disables the remove button --%>
 	$(".enable-oncheck").prop("disabled", selected.length < 1);
 };
-
-custList.onRemove = drawCustList;
-
-function newCustomer() {
-	var now = new Date().getTime(),
-		cust = {id:"new customer " + now, name:"", createdAt:now, lastModified:now};
-	custList.append(cust);
-}
 
 function removeCustomers() {
 	if (!confirm("Are you sure to remove the checked information?")) return;
@@ -102,6 +97,8 @@ function removeCustomers() {
 	customerManager
 		.remove()
 		.then(resp => {
+			if (resp.local) return;
+			
 			if (!resp.saved)
 				return alert("Failed to save the information.");
 			
@@ -113,11 +110,9 @@ function removeCustomers() {
 and calls the 'custList.onDatasetChange' handler
 and sets a customer information as current information.
 --%>
-custList.setData({
+customerManager.setData({
 	custList:${custList},
-	start:0,
-	fetch:${fetch},
-	totalSize:${totalSize}
+	pagination:${pagination}
 });
 
 $(".search-inputs #by").change(function(){$(".search-inputs #terms").focus().select();});

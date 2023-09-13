@@ -19,15 +19,17 @@
 			<div>
 				<table class="table info-list">
 					<thead>
-						<tr><th width="15%"><input type="checkbox" onchange="orderManager.selectOrder(this.checked);"/></th>
+						<tr><th width="15%"><input id="orderToggler" type="checkbox" onchange="orderManager.selectOrder(this.checked);"/></th>
 							<th width="35%">Order date</th>
 							<th width="50%">Customer name</th>
 						</tr>
 					</thead>
 					<%-- html for a row of information. See orderList.onDatasetChange(..) below.
-					Note that placeholder for properties of data are denoted as '{property name}'. --%>
-					<template id="row"><tr data-key="{ORD_ID}" onclick="orderManager.setCurrentOrder('{ORD_ID}')">
-						<td><input name="orderID" value="{ORD_ID}" type="checkbox" onchange="orderManager.selectOrder('{ORD_ID}', this.checked);"/></td>
+					Specify the 'data-field' attribute on elements bound to properties of information.
+					Note that placeholder for properties of data are denoted as '{property name}'.
+					--%>
+					<template id="row"><tr data-field="{index}" onclick="orderManager.setCurrentOrder('{index}')">
+						<td><input name="orderIndex" value="{index}" type="checkbox" onchange="orderManager.selectOrder('{index}', this.checked);"/></td>
 						<td>{ORD_DATE}</td>
 						<td>{CUST_NAME}</td>
 					</tr></template>
@@ -43,45 +45,41 @@ function searchOrders(start) {
 	if (orderManager.hasDirtyOrders()
 	 && !confirm("Do you wish to disregard the change made to order information?"))
 	 return;
-	 
-	orderManager.search(
-		$(".search-inputs #by").val(),
-		$(".search-inputs #terms").val(),
-		start
-	);
+
+	$("#orderToggler").prop("checked", false);
+
+	orderManager
+		.params({
+			by: $(".search-inputs #by").val(),
+			terms: $(".search-inputs #terms").val(),
+			start: start
+		})
+		.search();
 }
 
-function drawOrderList() {
-	let trs = [document.getElementById("notFound").innerHTML], <%-- from template#notFound --%>
-		orders = orderManager.orders;
-	if (!orders.empty) {
-		trs = orders.inStrings(document.getElementById("row").innerHTML);<%-- from template#row --%>
+orderManager.onOrdersChange = dataset => { <%--called when orderList is changed--%>
+	let trs = [document.getElementById("notFound").innerHTML]; <%-- from template#notFound --%>
+	if (!dataset.empty) {
+		trs = dataset.inStrings(document.getElementById("row").innerHTML);<%-- from template#row --%>
 	}
 	
 	$("#order-list").html(trs.join()); <%-- Query result is populated to the table --%>
-}
-
-orderManager.onOrdersChange = function(obj) { <%--called when orderList is changed--%>
-	drawOrderList();
-	$("#totalOrders").html((obj.totalSize || "No") + " orders found");
 	
 	<%-- Pagination links are set. See header.jsp. --%>
-	$(".paging").setPaging({
-		start:obj.start,
-		fetchSize:obj.fetch,
-		totalSize:obj.totalSize,
-		func:"searchOrders({index})"
-	});
+	let pagination = dataset.pagination;
+	pagination.func = "searchOrders({index})";
+	$("#totalOrders").html((pagination.totalSize || "No") + " orders found");
+	$(".paging").setPaging(pagination);
+
+	$("#btnAddLine").prop("disabled", dataset.empty);
 };
 
-orderManager.onNewOrder = drawOrderList; <%--called when a new info is added to orderList--%>
-
-orderManager.onOrderSelectionChange = function(selected) { <%--called when the user (un)checks order information--%>
-	var selectedKeys = selected.map(function(e){return orderManager.orders.getKey(e);});
-	$("#order-list input[name='orderID']").each(function(){ <%-- Sets the checkboxes --%>
+orderManager.onOrderSelectionChange = function(selected) { <%--called when the user (un)selects order information--%>
+	var selectedIndex = selected.map(e => e.index);
+	$("#order-list input[name='orderIndex']").each(function(){ <%-- Sets the checkboxes --%>
 		var checkbox = $(this),
 			value = checkbox.val();
-		checkbox.prop("checked", selectedKeys.indexOf(value) > -1);
+		checkbox.prop("checked", selectedIndex.indexOf(value) > -1);
 	});
 
 	$("#btnRemove").prop("disabled", selected.length < 1); <%-- Enables or disables the remove button --%>
@@ -93,6 +91,8 @@ function removeOrders() {
 	orderManager
 		.remove()
 		.then(function(resp) {
+			if (resp.local) return;
+			
 			if (!resp.saved)
 				return alert("Failed to save the information.");
 			
@@ -106,10 +106,7 @@ and sets a order information as current information.
 --%>
 orderManager.setOrders({
 	orderList:${orderList},
-	start:0,
-	fetch:${fetch},
-	totalSize:${totalSize},
-	lineList:${lineList}
+	pagination:${pagination}
 });
 
 $(".search-inputs #by").change(function(){$(".search-inputs #terms").focus().select();});

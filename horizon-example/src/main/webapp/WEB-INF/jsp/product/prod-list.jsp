@@ -12,7 +12,7 @@
 			<div class="result-inputs">
 				<span id="totalProds"></span>
 				<span>
-					<button onclick="prodList.setCurrent(null);" class="btn btn-primary-line">Add</button>
+					<button onclick="prodList.addData({}, {local:true});" class="btn btn-primary-line">Add</button>
 					<button onclick="removeProducts();" class="btn btn-primary-line enable-oncheck">Remove</button>
 				</span>
 			</div>
@@ -25,10 +25,12 @@
 						</tr>
 					</thead>
 					<%-- html for a row of information. See prodList.onDatasetChange(..) below.
-					Note that placeholder for properties of data are denoted as '{property name}'. --%>
-					<template id="row"><tr data-key="{PROD_ID}"><td><input name="prodID" value="{PROD_ID}" type="checkbox" onchange="prodList.select({PROD_ID}, this.checked);"></td>
-							<td><a onclick="prodList.setCurrent({PROD_ID})">{PROD_ID}</a></td>
-							<td><a onclick="prodList.setCurrent({PROD_ID})">{PROD_NAME} {PROD_TYPE}</a></td>
+					Specify the 'data-field' attribute on elements bound to properties of information.
+					Note that placeholder for properties of data are denoted as '{property name}'.
+					--%>
+					<template id="row"><tr data-field="{index}"><td><input name="prodIndex" value="{index}" type="checkbox" onchange="prodList.select('{index}', this.checked);"></td>
+							<td onclick="prodList.setCurrent('{index}')">{PROD_ID}</td>
+							<td onclick="prodList.setCurrent('{index}')">{PROD_NAME} {PROD_TYPE}</td>
 						</tr></template>
 					<%-- html for when no row of information found. See prodList.onDatasetChange(..) below --%>
 					<template id="notFound"><tr><td colspan="3" class="text-center">No product information found.</td></template>
@@ -41,40 +43,45 @@
 function searchProducts(start) {
 	$("#prodToggler").prop("checked", false);
 	productManager
-		.search($(".search-inputs #by").val(), $(".search-inputs #terms").val(), start);
+		.params({
+			by: $(".search-inputs #by").val(),
+			terms: $(".search-inputs #terms").val(),
+			start: start
+		})
+		.search();
 }
 
-prodList.onDatasetChange = resp => { <%--called when data is set to prodList --%>
+prodList.onDatasetChange = dataset => { <%--called when data is set to prodList --%>
 	var trs = [document.getElementById("notFound").innerHTML];<%-- from template#notFound --%>
 	
 	<%-- Query result is populated to the table --%>
-	if (!prodList.empty) {
-		var rowTemplate = document.getElementById("row").innerHTML;
-		trs = prodList.getDataset().map(row => rowTemplate <%-- from template#row --%>
-				.replace(/{PROD_ID}/gi, row.PROD_ID)
-				.replace(/{PROD_NAME}/gi, row.PROD_NAME)
-				.replace(/{PROD_TYPE}/gi, row.PROD_TYPE)
-		);
+	if (!dataset.empty) {
+		var rowTemplate = document.getElementById("row").innerHTML; <%-- from template#row --%>
+			trs = prodList.getData("item").map(item => {
+				return rowTemplate
+					.replace(/{index}/gi, item.index)
+					.replace(/{PROD_ID}/gi, item.getValue("PROD_ID"))
+					.replace(/{PROD_NAME}/gi, item.getValue("PROD_NAME"))
+					.replace(/{PROD_TYPE}/gi, item.getValue("PROD_TYPE"))
+			});
 	}
 	$("#prod-list").html(trs.join());
-	$("#totalProds").html((resp.totalSize || "No") + " products found");
+
+	let pagination = dataset.pagination;
+	pagination.func = "searchProducts({index})";
+	$("#totalProds").html((pagination.totalSize || "No") + " products found");
 	
 	<%-- Pagination links are set. See header.jsp. --%>
-	$(".paging").setPaging({
-		start:resp.start,
-		fetchSize:resp.fetch,
-		totalSize:resp.totalSize,
-		func:"searchProducts({index})"
-	});
+	$(".paging").setPaging(pagination);
 };
 
-prodList.onSelectionChange = selected => { <%--called when the user (un)checks product information--%>
+prodList.onSelectionChange = selected => { <%--called when the user (un)selects information--%>
 	<%-- Sets the checkboxes --%>
-	var selectedKeys = selected.map(e => prodList.getKey(e));
-	$("#prod-list input[name='prodID']").each(function(){
+	var selectedIndex = selected.map(e => e.index);
+	$("#prod-list input[name='prodIndex']").each(function(){
 		var checkbox = $(this),
 			value = checkbox.val();
-		checkbox.prop("checked", selectedKeys.indexOf(parseInt(value)) > -1);
+		checkbox.prop("checked", selectedIndex.includes(value));
 	});
 
 	<%-- Enables or disables the remove button --%>
@@ -87,10 +94,9 @@ function removeProducts() {
 	productManager
 		.remove()
 		.then(function(resp) {
-			if (!resp.saved)
-				return alert("Failed to save the information.");
+			if (resp.local) return;
 			
-			alert("Information saved successfully.");
+			alert(resp.saved ? "Information saved successfully." : "Failed to save the information.");
 		});
 }</c:set>
 <c:set var="onload" scope="request">${onload} <%-- To be written at ${onload} of prod-main.jsp --%>
@@ -98,11 +104,9 @@ function removeProducts() {
 and calls the 'prodList.onDatasetChange' handler
 and sets a product information as current information.
 --%>
-prodList.setData({
-	prodList:${prodList},
-	start:0,
-	fetch:${fetch},
-	totalSize:${totalSize}
+productManager.setData({
+	prodList: ${prodList},
+	pagination: ${pagination}
 });
 
 $(".search-inputs #by").change(function(){$(".search-inputs #terms").focus().select();});

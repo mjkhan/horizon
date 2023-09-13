@@ -6,24 +6,24 @@
 							<col width="200">
 							<col width="500">
 						</colgroup>
-						<tbody id="cust-info">
-							<tr><th><label for="custID">Customer ID</label></th>
-								<td><input id="custID" type="text" readonly class="form-control" placeholder="To be assigned on save" /></td>
+						<tbody id="cust-info"><%-- element IDs are named after properties of information --%>
+							<tr><th><label for="id">Customer ID</label></th>
+								<td><input id="id" type="text" readonly class="form-control" placeholder="To be assigned on save" /></td>
 							</tr>
-							<tr><th><label for="custName">Name</label></th>
-								<td><input id="custName" type="text" required maxlength="30" onchange="custList.setValue('name', this.value);" class="form-control" placeholder="" /></td>
+							<tr><th><label for="name">Name</label></th>
+								<td><input id="name" type="text" required maxlength="30" class="form-control" placeholder="" /></td>
 							</tr>
 							<tr><th><label for="address">Address</label></th>
-								<td><input id="address" type="text" required maxlength="50" onchange="custList.setValue('address', this.value);" class="form-control" /></td>
+								<td><input id="address" type="text" required maxlength="50" class="form-control" /></td>
 							</tr>
-							<tr><th><label for="phoneNo">Phone number</label></th>
-								<td><input id="phoneNo" type="text" required pattern="[0-9-]+" maxlength="15" onchange="custList.setValue('phoneNumber', this.value);" class="form-control" /></td>
+							<tr><th><label for="phoneNumber">Phone number</label></th>
+								<td><input id="phoneNumber" type="text" required pattern="\d{3}-\d{3}-\d{4}" maxlength="15" class="form-control" /></td>
 							</tr>
 							<tr><th><label for="email">Email</label></th>
-								<td><input id="email" type="email" required maxlength="30" onchange="custList.setValue('email', this.value);" class="form-control" /></td>
+								<td><input id="email" type="email" required maxlength="30" class="form-control" /></td>
 							</tr>
 							<tr><th><label for="credit">Credit</label></th>
-								<td><input id="credit" type="text" required onchange="custList.setValue('credit', this.value);" class="form-control" /></td>
+								<td><input id="credit" type="text" required class="form-control" /></td>
 							</tr>
 							<tr><th><label for="createdAt">Created at</label></th>
 								<td><input id="createdAt" type="text" readonly class="form-control" /></td>
@@ -36,11 +36,29 @@
 					<button id="btnSave" onclick="saveCustomer();" class="btn btn-primary float-right">Save</button>
 				</div>
 <c:set var="functions" scope="request">${functions} <%-- To be written at ${functions} of cust-main.jsp --%>
-custList.onModify = function(changed, item, current) { <%-- called when the user changes fields of a customer information --%>
+custList.onCurrentChange = function(item) { <%--called when the user changes the current information--%>
+	$("#cust-list").setCurrentRow(item.index); <%-- See header.jsp --%>
+
+	$("#cust-info input").each(function(){
+		let input = $(this),
+			property = input.attr("id");
+		
+		input.val(item.getValue(property))
+			 .off("change")
+			 .change(function(){
+				custList.setValue(property, input.val());
+			 });
+	});
+	$("#credit").prop("readonly", item.isNew());
+
+	<%-- Enables or disables the 'Save' button depending on
+	whether the current information is dirty or not --%>
+	$("#btnSave").prop("disabled", !item.dirty);
+}
+
+custList.onModify = function(changed, item, current) { <%-- called when the user changes information --%>
 	if (changed.includes("name")) {
-		drawCustList();
 		custList.setState();
-		$("#address").focus();
 	}
 	if (!current) return;
 	
@@ -50,42 +68,22 @@ custList.onModify = function(changed, item, current) { <%-- called when the user
 	$("#btnSave").prop("disabled", false);
 };
 
-custList.onCurrentChange = function(item) { <%--called when the user changes the current customer information--%>
-	var info = item ? item.data : {},
-		custID = info.id;
-	$("#cust-list").setCurrentRow(custID); <%-- See header.jsp --%>
+function newCustomer() {
+	let customer = Array
+		.from(document.querySelectorAll("#cust-info input"))
+		.map(input => input.id)
+		.reduce((obj, id) => {obj[id] = null; return obj;}, {});
 		
-	$("#custID").val(custID);
-	$("#custName").val(info.name);
-	$("#address").val(info.address);
-	$("#phoneNo").val(info.phoneNumber);
-	$("#email").val(info.email);
-	$("#credit")
-		.val(item ? item.getValue("credit") : null)
-		.prop("readonly", item ? "added" == item.state : false);
-
-	$("#createdAt").val(item ? item.getValue("createdAt") : null);
-	$("#lastModified").val(item ? item.getValue("lastModified") : null);
-
-	$("#custName").focus();
-	
-	<%-- Enables or disables the 'Save' button depending on
-	whether the current information is dirty or not --%>
-	$("#btnSave").prop("disabled", !item || !item.dirty);
+	customer.createdAt = customer.lastModified = new Date().getTime();
+	custList.addData(customer, {local:true});
+	$("#name").focus();
 }
-
-custList.onReplace = custList.onErase = function(){  <%--called when customer information is either erased or replaced --%>
-	drawCustList();
-	custList.setState();
-};
 
 function saveCustomer() {
 	if (!validInputs("#cust-info input")) return; <%-- See horizon.js --%>
 
-	var customer = Object.assign({}, custList.getCurrent());
-
 	customerManager
-		.save(customer)
+		.save()
 		.then(function(resp){
 			if (!resp.saved)
 				return alert("Failed to save the information.");

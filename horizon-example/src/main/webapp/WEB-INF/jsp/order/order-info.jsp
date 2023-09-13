@@ -10,18 +10,18 @@
 							<col width="200">
 							<col width="500">
 						</colgroup>
-						<tbody id="order-info">
+						<tbody id="order-info"><%-- Specify the 'data-field' attribute on elements bound to properties of information --%>
 							<tr><th><label for="orderID">Order ID</label></th>
-								<td><input id="orderID" type="text" readonly class="form-control" placeholder="To be assigned on save" /></td>
+								<td><input id="orderID" data-field="ORD_ID" type="text" readonly class="form-control" placeholder="To be assigned on save" /></td>
 							</tr>
 							<tr><th><label for="orderDate">Order date</label></th>
-								<td><input id="orderDate" type="text" readonly class="form-control" placeholder="To be assigned on save" /></td>
+								<td><input id="orderDate" data-field="ORD_DATE" type="text" readonly class="form-control" placeholder="To be assigned on save" /></td>
 							</tr>
-							<tr><th><label for="CUST_ID" onclick="orderManager.setCustomer();">Customer</label></th>
-								<td><input id="custName" type="text" readonly class="form-control" placeholder="" /></td>
+							<tr><th><label for="custName" onclick="orderManager.setCustomer();">Customer</label></th>
+								<td><input id="custName" data-field="CUST_NAME" type="text" readonly class="form-control" placeholder="Click 'Customer' to select a customer" /></td>
 							</tr>
 							<tr><th><label for="amount">Total amount</label></th>
-								<td><input id="amount" type="text" readonly class="form-control" /></td>
+								<td><input id="amount" data-field="ORD_AMT" type="text" readonly class="form-control" /></td>
 							</tr>
 						</tbody>
 					</table>
@@ -43,11 +43,11 @@
 						</thead>
 						<%-- html for a row of information. See lineList.onDatasetChange(..) below.
 						Note that placeholder for properties of data are denoted as '{property name}'. --%>
-						<template id="lineRow"><tr data-key="{LINE_ID}" onclick="orderManager.setCurrentLine('{LINE_ID}');">
-							<td><input name="lineID" value="{LINE_ID}" type="checkbox" onchange="orderManager.selectLine('{LINE_ID}', this.checked);"/></td>
-							<td onclick="orderManager.setProduct('{LINE_ID}');">{PROD_NAME} {PROD_TYPE}</td>
+						<template id="lineRow"><tr data-field="{index}" onclick="orderManager.setCurrentLine('{index}');">
+							<td><input name="lineIndex" value="{index}" type="checkbox" onchange="orderManager.selectLine('{index}', this.checked);"/></td>
+							<td onclick="orderManager.setProduct('{index}');">{PROD_NAME} {PROD_TYPE}</td>
 							<td class="text-right">{UNIT_PRICE}</td>
-							<td><input name="QNTY" value="{QNTY}" type="text" onchange="orderManager.setLineValue('{LINE_ID}', 'QNTY', this.value);" class="form-control text-right"/></td>
+							<td><input name="QNTY" value="{QNTY}" type="text" onchange="orderManager.setLineValue('{index}', 'QNTY', this.value);" class="form-control text-right"/></td>
 							<td class="text-right">{PRICE}</td>
 						</tr></template>
 						<%-- html for no row of information. See lineList.onDatasetChange(..) below --%>
@@ -56,48 +56,42 @@
 					</table>
 				</div>
 <c:set var="functions" scope="request">${functions} <%-- To be written at ${functions} of order-main.jsp --%>
-orderManager.onCurrentOrderChange = function(item) { <%--called when the user changes the current order information--%>
-	var found = !isEmpty(item), 
-		info = found ? item.data : {};
-	
-	$("#custName").prop("placeholder", !found ? "" : "Click 'Customer' to select a customer");
+orderManager.onCurrentOrderChange = item => { <%--called when the user changes the current order information--%>
+	$("#order-list").setCurrentRow(item.index); <%-- See header.jsp --%>
 
-	$("#order-list").setCurrentRow(info.ORD_ID); <%-- See header.jsp --%>
-	
-	var orderID = info.ORD_ID;
-	$("#orderID").val(!orderID.startsWith("new order") ? orderID : "To be assigned on save");
-	$("#orderDate").val(found ? item.getValue("ORD_DATE") : "");
-	$("#custID").val(info.CUST_ID);
-	$("#custName").val(info.CUST_NAME);
-	$("#amount").val(found ? item.getValue("ORD_AMT") : "");
-
-	$("#btnAddLine").prop("disabled", !found);
+	$("#order-info input[data-field]").each(function() {
+		let input = $(this),
+			dataField = input.attr("data-field");
+		input.val(item.getValue(dataField));
+	});
 }
 
-orderManager.onOrderModify = orderManager.onLineModify = function(changed, item, current){
-	drawOrderList();
+orderManager.onOrderModify = (changed, item, current) => {
 	orderManager.orders.setState();
 };
 
-orderManager.onLineRemove = function(removed) {
-	drawLineList();
+orderManager.onLineModify = (changed, item, current) => {
+	orderManager.getOrderLines().setState();
 };
 
 function saveOrder() {
 	let order = orderManager.orders.getCurrent(),
 		lineList = orderManager.getOrderLines();
 	let	validity = orderManager
-		.validate()				<%-- See horizon.js --%>
-		.onInvalid(val => {
-			let lineKey = lineList.getKey(lineList.getDataset()[val.index]);
-			switch (val.id) {
-			case "CUST_ID": return orderManager.setCustomer();
+		.validate()			<%-- See horizon.js --%>
+		.onInvalid(v => {
+			if ("CUST_NAME" == v.id)
+				return orderManager.setCustomer();
+				
+			let lineItem = lineList.getData("item")[v.index],
+				lineIndex = lineItem.index;
+			switch (v.id) {
 			case "PROD_ID":
-				lineList.setCurrent(lineKey);
-				return orderManager.setProduct(lineKey);
+				lineList.setCurrent(lineIndex);
+				return orderManager.setProduct(lineIndex);
 			case "QNTY":
-				lineList.setCurrent(lineKey);
-				return document.getElementsByName("QNTY")[val.index].focus();
+				lineList.setCurrent(lineIndex);
+				return document.getElementsByName("QNTY")[v.index].focus();
 			}
 		});
 	if (!validInput(validity)) return;
@@ -110,37 +104,25 @@ function saveOrder() {
 	});
 }
 
-function drawLineList(lineList) {
-	if (!lineList)
-		lineList = orderManager.getOrderLines();
-	var trs = [document.getElementById("noLineList").innerHTML]; <%-- from template#noLineList --%>
+orderManager.onOrderLinesChange = lineList => {
+	let trs = [document.getElementById("noLineList").innerHTML]; <%-- from template#noLineList --%>
 		
 	<%-- Query result is populated to the table --%>
-	if (lineList && !lineList.empty) {
-		var rowTemplate = document.getElementById("lineRow").innerHTML; <%-- from template#lineRow --%>
-		trs = lineList.getDataset("item").map(row => {
-			var added = !row.getValue("PROD_ID");
-			return rowTemplate
-				.replace(/{LINE_ID}/gi, row.getValue("LINE_ID"))
-				.replace(/{PROD_ID}/gi, row.getValue("PROD_ID"))
-				.replace(/{PROD_NAME}/gi, "<a onclick='orderManager.setProduct(\"" + row.getValue("LINE_ID") + "\");'>" + (!added ? row.getValue("PROD_NAME") : "Select a product") + "</a>")
-				.replace(/{PROD_TYPE}/gi, row.getValue("PROD_TYPE"))
-				.replace(/{UNIT_PRICE}/gi, row.getValue("UNIT_PRICE"))
-				.replace(/{QNTY}/gi, row.getValue("QNTY"))
-				.replace(/{PRICE}/gi, row.getValue("PRICE"));
-		});
+	if (!lineList.empty) {
+		trs = lineList.inStrings(
+			document.getElementById("lineRow").innerHTML, <%-- from template#lineRow --%>
+			(template, item) => template.replace(
+				/{PROD_NAME}/gi,
+				"<a onclick='orderManager.setProduct(\"{index}\");'>" + (item.getValue("PROD_NAME") ? "{PROD_NAME}" : "Select a product") + "</a>"
+			)
+		);
 	}
 	$("#line-list").html(trs.join());
+	orderManager.setDirtyState();
 }
 
-orderManager.onOrderLinesChange = function(lineList) {
-	drawLineList(lineList);
-	if (lineList)
-		lineList.setState();
-};
-orderManager.onCurrentLineChange = function(item){
-	if (item)
-		$("#line-list").setCurrentRow(item.data.LINE_ID);
+orderManager.onCurrentLineChange = item => {
+	$("#line-list").setCurrentRow(item.index);
 };
 
 orderManager.onDirtyOrder = function(dirty) {
@@ -148,23 +130,17 @@ orderManager.onDirtyOrder = function(dirty) {
 }
 
 orderManager.onLineSelectionChange = function(selected){
-	var lineList = orderManager.getOrderLines(),
-		selectedKeys = lineList ? selected.map(s => lineList.getKey(s)) : [];
-	$("#line-list input[name='lineID']").each(function(){
+	var selectedIndex = selected.map(e => e.index);
+	$("#line-list input[name='lineIndex']").each(function(){
 		var checkbox = $(this),
 			value = checkbox.val();
-		checkbox.prop("checked", selectedKeys.indexOf(value) > -1);
+		checkbox.prop("checked", selectedIndex.includes(value));
 	});
-	$("#btnRemoveLines").prop("disabled", selectedKeys.length < 1);
-};
-orderManager.onNewLine = function(appended){
-	drawLineList();
+	$("#btnRemoveLines").prop("disabled", selectedIndex.length < 1);
 };
 
-orderManager.onCurrentChange = function(info) {
-	if (!info) return;
-	
-	$("#line-list").setCurrentRow(info.LINE_ID);
+orderManager.onCurrentChange = item => {
+	$("#line-list").setCurrentRow(item.index);
 };</c:set>
 <c:set var="onload" scope="request">${onload} <%-- To be written at ${onload} of order-main.jsp --%>
 onEnterPress("#order-info input", () => saveOrder());</c:set>

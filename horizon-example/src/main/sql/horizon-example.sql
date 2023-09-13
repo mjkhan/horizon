@@ -15,14 +15,14 @@ CREATE TABLE CUSTOMER (
 );
 
 INSERT INTO CUSTOMER (CUST_ID, CUST_NAME, ADDRESS, PHONE_NO, EMAIL, CREDIT, INS_TIME, UPD_TIME)
-SELECT '00001', 'Jane East', 'Somewhere east', '01-001-0001', 'jane.east@acme.com', 10000, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP UNION
-SELECT '00002', 'Jane West', 'Somewhere west', '02-002-0002', 'jane.west@acme.com', 20000, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP UNION
-SELECT '00003', 'Jane South', 'Somewhere south', '03-003-0003', 'jane.south@acme.com', 30000, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP UNION
-SELECT '00004', 'Jane North', 'Somewhere north', '04-004-0004', 'jane.north@acme.com', 40000, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP UNION
-SELECT '00005', 'John East', 'Somewhere east', '05-005-0005', 'john.east@acme.com', 50000, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP UNION
-SELECT '00006', 'John West', 'Somewhere west', '06-006-0006', 'john.west@acme.com', 60000, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP UNION
-SELECT '00007', 'John South', 'Somewhere south', '07-007-0007', 'john.south@acme.com', 70000, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP UNION
-SELECT '00008', 'John North', 'Somewhere north', '08-008-0008', 'john.north@acme.com', 80000, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP;
+SELECT '00001', 'Jane East', 'Somewhere east', '001-001-0001', 'jane.east@acme.com', 10000, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP UNION
+SELECT '00002', 'Jane West', 'Somewhere west', '002-002-0002', 'jane.west@acme.com', 20000, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP UNION
+SELECT '00003', 'Jane South', 'Somewhere south', '003-003-0003', 'jane.south@acme.com', 30000, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP UNION
+SELECT '00004', 'Jane North', 'Somewhere north', '004-004-0004', 'jane.north@acme.com', 40000, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP UNION
+SELECT '00005', 'John East', 'Somewhere east', '005-005-0005', 'john.east@acme.com', 50000, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP UNION
+SELECT '00006', 'John West', 'Somewhere west', '006-006-0006', 'john.west@acme.com', 60000, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP UNION
+SELECT '00007', 'John South', 'Somewhere south', '007-007-0007', 'john.south@acme.com', 70000, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP UNION
+SELECT '00008', 'John North', 'Somewhere north', '008-008-0008', 'john.north@acme.com', 80000, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP;
 
 CREATE TABLE PRODUCT (
        PROD_ID              INT NOT NULL AUTO_INCREMENT,
@@ -39,7 +39,8 @@ SELECT PROD_NAME, PROD_TYPE, UNIT_PRICE, VENDOR
 FROM (
 	SELECT 'JWord' PROD_NAME, 'Ohracle' VENDOR UNION
 	SELECT 'JExcel' PROD_NAME, 'Macrosoft' VENDOR UNION
-	SELECT 'JPoint' PROD_NAME, 'Joogle' VENDOR
+	SELECT 'JPoint' PROD_NAME, 'Joogle' VENDOR UNION
+	SELECT 'JOutlook' PROD_NAME, 'Macrosoft' VENDOR
 ) A, (
 	SELECT 'Standard' PROD_TYPE, 1000 UNIT_PRICE UNION
 	SELECT 'Professional' PROD_TYPE, 2000 UNIT_PRICE UNION
@@ -160,7 +161,7 @@ create procedure sp_insert_customer_out(out custID varchar(5), custName varchar(
 		custID,
 		custName,
 		'Somewhere you may know',
-		'99-999-9999',
+		'999-999-9999',
 		CONCAT(custID, '@acme.com'),
 		10000,
 		CURRENT_TIMESTAMP,

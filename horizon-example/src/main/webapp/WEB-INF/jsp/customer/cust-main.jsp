@@ -10,57 +10,61 @@
 			</div>
 		</div>
 <script type="text/javascript">
-var custList = new Dataset({ <%-- Customer dataset from querying customers --%>
-	keymapper:function(info) {return info ? info.id : "";}, <%-- Key to a customer data --%>
-	dataGetter:function(obj) {return obj.custList;}, <%-- Extracts customer dataset named 'custList' from the server response --%>
-	formats:{ <%-- value formats for a customer's properties of credit, createdAt, lastModified. See horizon.js --%>
-		credit:numberFormat,
-		createdAt:datetimeFormat,
-		lastModified:datetimeFormat
-	},
-	trace:true
-});
+var custList = new Dataset({ <%-- dataset from querying customers --%>
+		keys:["id"], <%-- Used to identify current and/or selected DataItems by the key in custList.setState() to refresh the current state --%>
+		formats:{ <%-- value formats for information properties of credit, createdAt, lastModified. See horizon.js --%>
+			credit: numberFormat,
+			createdAt: datetimeFormat,
+			lastModified: datetimeFormat
+		},
+		trace:true
+	});
 
-var customerManager = { <%-- Controlls request and response to and from the CustomerController. --%>
-	<%--Searches customer information with the given terms--%>
-	search:function(by, terms, start) {
-		var _search = function(state, prev) {
-			if (prev) {
-				start = (start || 0) - ${fetch};
-			}
-			json({
-				url:"<c:url value='/customer'/>",
-				data:{
-					by:by,
-					terms:terms,
-					start:Math.max(start || 0, 0)
-				},
-				success:function(resp) {
-					resp.state = state;
-					custList.setData(resp);
-				}
-			});
-		};
-		<%-- Sets the current search to the reload method --%>
-		customerManager.reload = function(prev) {
-			_search(custList.state, prev);
-		};
+var	customerManager = { <%-- Controls request and response to and from the CustomerController. --%>
+	_params: {
+		by: "",
+		terms: "",
+		start: 0
+	},
+
+	params: (obj) => { <%-- Sets parameters to search information --%>
+		customerManager._params = obj;
+		return customerManager;
+	},
+	
+	search:function(option) { <%-- Sends request to search information and receives the response --%>
+		json({
+			url:"<c:url value='/customer'/>",
+			data:customerManager._params,
+			success:resp => customerManager.setData(resp, option)
+		});
+	},
+
+	setData: (obj, option) => { <%-- Sets the query result to custList via customerManager --%>
+		custList.pagination = obj.pagination;
+		custList.setData(obj.custList, option);
+	},
+	
+	reload:function(prev){ <%--Reloads information after create, update, or remove requests with the last query terms.--%>
+		if (prev) {
+			let start = (customerManager._params.start || 0) - custList.pagination.fetchSize;
+			customerManager._params.start = Math.max(start, 0);
+		}
+		customerManager.search({stateful: true});
+	},
+	
+	save:function(){
+		let current = custList.getCurrent("item");
+		if (!current)
+			return console.log("WARNING", "current item not found");
 		
-		_search();
+		let customer = current.data;
+		
+		return current.isNew() ?
+			customerManager.create(customer) :
+			customerManager.update(customer);
 	},
-	
-	<%--Reloads customer information after create, update, or remove requests with the last query terms.--%>
-	reload:function(){
-		customerManager.search();
-	},
-	
-	save:function(customer){
-		if (customer.id.startsWith("new customer"))
-			return this.create(customer);
-		else
-			return this.update(customer);
-	},
-	
+
 	create:function(customer) {
 		return new Promise(function(resolve, reject) {
 			json({
@@ -68,9 +72,9 @@ var customerManager = { <%-- Controlls request and response to and from the Cust
 				type:"POST",
 				data:customer,
 				success:resp => {
-					resolve(resp);
 					if (resp.saved)
-						custList.replace({key:customer.id, data:resp.cust});
+						customerManager.reload();
+					resolve(resp);
 				}
 			});
 		});
@@ -83,49 +87,42 @@ var customerManager = { <%-- Controlls request and response to and from the Cust
 				type:"POST",
 				data:customer,
 				success:resp => {
-					resolve(resp);
 					if (resp.saved)
-						custList.replace({data:resp.cust});
+						customerManager.reload();
+					resolve(resp);
 				}
 			});
 		});
 	},
 	
 	remove:function() {
-		var selectedIDs = custList.getKeys("selected");
-		if (selectedIDs.length < 1)
+		let selected = custList.getItems("selected");
+		if (selected.length < 1)
 			throw "Select customers to remove.";
-		
-			<%--When all information on the current page is removed
-			information on the previous page is requested. 
-			--%>
-		var prev = custList.length == selectedIDs.length,
-			added = selectedIDs.filter(custID => custID.startsWith("new customer")),
-			custIDs = selectedIDs.filter(custID => !custID.startsWith("new customer"));
-		
-		return new Promise(function(resolve, reject){
-			if (custIDs.length > 0)
-				json({
-					url:"<c:url value='/customer/remove'/>",
-					type:"POST",
-					data:{custIDs:custIDs.join(",")},
-					success:resp => {
-						resolve(resp);
-						if (resp.saved) {
-							if (prev)
-								customerManager.reload(prev);
-							else
-								custList.erase(selectedIDs);
-						}
-					}
-				});
-			else {
-				resolve({saved:true});
-				if (prev)
-					customerManager.reload(prev);
-				else
-					custList.erase(selectedIDs);
-			}
+
+		<%--When all information on the current page is removed
+		information on the previous page is requested. 
+		--%>
+		let prev = custList.length == selected.length,
+			removed = custList.remove(selected.map(item => item.index))
+				.getData("removed");
+
+		if (removed.length < 1) <%-- If removed information are all "added" ones --%>
+			return new Promise(function(resolve, reject){
+				resolve({local: true});
+			});
+
+		return new Promise(function(resolve, reject) {
+			json({
+				url:"<c:url value='/customer/remove'/>",
+				type:"POST",
+				data:{custIDs: removed.map(data => data.id).join(",")},
+				success:resp => {
+					if (resp.saved)
+						customerManager.reload(prev);
+					resolve(resp);
+				}
+			});
 		});
 	}
 };
@@ -134,5 +131,5 @@ ${functions} <%--Placeholder for functions and variables from included JSPs--%>
 $(function(){
 	${onload} <%--Placeholder for codes from included JSPs to be executed when the page is ready--%>
 });
-//# sourceURL=cust-main.js
+//# sourceURL=cust-main.jsp
 </script>

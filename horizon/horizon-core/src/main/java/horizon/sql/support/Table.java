@@ -16,6 +16,7 @@ import horizon.base.AbstractComponent;
 import horizon.base.Assert;
 import horizon.data.DataObject;
 import horizon.data.StringMap;
+import horizon.sql.DBAccess;
 
 /**Meta information on a table.<br />
  * A Table describes a table in a database with information such as
@@ -27,11 +28,11 @@ public class Table extends StringMap<Column> {
 	private static final long serialVersionUID = 1L;
 	private static final StringMap<Table> cache = new StringMap<>();
 
-	public static Table get(String name, Connection connection) {
+	public static Table get(String name, DBAccess dbaccess) {
 		Table table = cache.get(name);
 		if (table == null)
 			try {
-				cache.put(name, table = new Builder().setConnection(connection).create(name));
+				cache.put(name, table = new Builder().create(dbaccess, name));
 			} catch (Exception e) {
 				throw Assert.runtimeException(e);
 			}
@@ -244,20 +245,20 @@ public class Table extends StringMap<Column> {
 	}
 
 	private static class Builder extends AbstractComponent {
-		Connection connection;
-
-		Builder setConnection(Connection connection) {
-			this.connection = connection;
-			return this;
-		}
-
-		Table create(String name) throws Exception {
+		Table create(DBAccess dbaccess, String name) throws Exception {
 			Table table = new Table();
 //			table.setName(name);
 
+			Connection connection = dbaccess.getConnection();
 			DatabaseMetaData metaData = connection.getMetaData();
-			String catalog = connection.getCatalog(),
-				   schema = connection.getSchema();
+
+			String catalog = dbaccess.getCatalog(),
+				   schema = dbaccess.getSchema();
+			if (isEmpty(catalog))
+				catalog = connection.getCatalog();
+			if (isEmpty(schema))
+				schema = connection.getSchema();
+
 			ResultSet columns = metaData.getColumns(catalog, schema, name, null);
 
 			while (columns.next()) {

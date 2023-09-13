@@ -17,7 +17,6 @@ import horizon.base.AbstractComponent;
 import horizon.base.Klass;
 import horizon.data.StringMap;
 import horizon.sql.DBAccess;
-import horizon.sql.support.Instruction.BeforeAfter;
 import horizon.util.Xmlement;
 
 public class Orm extends AbstractComponent {
@@ -44,7 +43,7 @@ public class Orm extends AbstractComponent {
 
 		boolean close = dbaccess.open();
 		try {
-			Table table = Table.get(notEmpty(orm.getTable(), "table"), dbaccess.getConnection());
+			Table table = Table.get(notEmpty(orm.getTable(), "table"), dbaccess);
 			orm.setTable(table);
 			orm.tableResolved = true;
 			return orm;
@@ -156,36 +155,6 @@ public class Orm extends AbstractComponent {
 	public List<Mapping> getAutoInc() {
 		return ifEmpty(autoInc, Collections::emptyList);
 	}
-/*
-	public void setTable(Table table) {
-		Column autoInc = table.getAutoInc();
-		if (autoInc != null) {
-			this.autoInc = getMapping(autoInc);
-		}
-
-		String ref = objRef();
-		List<Column> specified = table.getColumns(byColumn.keySet().toArray(new String[byColumn.size()]));
-		Function<List<Column>, List<Column.Token>> toColumnTokens = columns -> columns.stream()
-			.map(column -> Column.Token.create(column).setToken("#{" + ref + "." + getMapping(column).getProperty() + "}"))
-			.collect(Collectors.toList());
-
-		insert = table.insert(toColumnTokens.apply(specified));
-
-		List<Column>
-			keyColumns = table.getKeys(),
-			nonKeyColumns = specified.stream().filter(column -> !keyColumns.contains(column)).collect(Collectors.toList());
-
-		List<Column.Token>
-			nonKeys = toColumnTokens.apply(nonKeyColumns),
-			keys = toColumnTokens.apply(keyColumns);
-		update = table.update(nonKeys, keys);
-		delete = table.delete(keys);
-	}
-
-	public Mapping getAutoInc() {
-		return autoInc;
-	}
-*/
 
 	public String getSelect() {
 		return select;
@@ -362,7 +331,7 @@ public class Orm extends AbstractComponent {
 					"beforeUpdate",
 					"beforeDelete"
 				).forEach((evtName) ->
-					xml.getChildren(child, evtName).forEach(node -> orm.add(evtName, BeforeAfter.create(node)))
+					xml.getChildren(child, evtName).forEach(node -> orm.add(evtName, Instruction.BeforeAfter.create(node)))
 				);
 		}
 		return orms;
