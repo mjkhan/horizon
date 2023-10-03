@@ -329,9 +329,10 @@ interfaces with HTML elements in response to events from both ends.
 			dirtyLines = lineList.getData("dirty"),
 			orderLines = Object.entries(dirtyLines)
 				.reduce((obj, entry) => {
-					let status = entry[0],
+					let prop = entry[0],
 						list = entry[1];
-					obj[status] = list.map(info => orderManager.getOrderLine(info));
+					if ("empty" != prop)
+						obj[prop] = list.map(info => orderManager.getOrderLine(info));
 					return obj;
 				}, {});
 		let create = item.isNew(),
@@ -373,7 +374,7 @@ interfaces with HTML elements in response to events from both ends.
 		information on the previous page is requested.--%>
 		var prev = orderList.length == selected.length,
 			removed = orderList.remove(selected.map(item => item.index))
-				.getData("removed");
+				.getData("dirty").removed;
 
 		if (removed.length < 1) <%-- If removed information are all "added" ones --%>
 			return new Promise(function(resolve, reject){

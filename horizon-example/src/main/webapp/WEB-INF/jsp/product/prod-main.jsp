@@ -108,7 +108,7 @@ var prodList = new Dataset({ <%-- dataset from querying products --%>
 		--%>
 		let prev = prodList.length == selected.length,
 			removed = prodList.remove(selected.map(item => item.index))
-				.getData("removed");
+				.getData("dirty").removed;
 
 		if (removed.length < 1) <%-- If removed information are all "added" ones --%>
 			return new Promise(function(resolve, reject){

@@ -6,7 +6,7 @@
 <parent>
 	<groupId>horizon</groupId>
 	<artifactId>horizon</artifactId>
-	<version>23.02.01</version>
+	<version>23.10.01</version>
 </parent>
 
 <artifactId>horizon-core</artifactId>

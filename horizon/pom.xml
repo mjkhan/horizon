@@ -4,7 +4,7 @@
 
 <groupId>horizon</groupId>
 <artifactId>horizon</artifactId>
-<version>23.02.01</version>
+<version>23.10.01</version>
 <packaging>pom</packaging>
 
 <name>horizon</name>

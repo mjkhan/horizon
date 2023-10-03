@@ -27,7 +27,7 @@
     <dependency>
       <groupId>horizon</groupId>
       <artifactId>horizon-spring</artifactId>
-      <version>23.02.01</version>
+      <version>23.10.01</version>
       <scope>compile</scope>
     </dependency>
 

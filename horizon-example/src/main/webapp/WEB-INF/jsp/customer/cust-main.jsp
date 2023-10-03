@@ -105,7 +105,7 @@ var	customerManager = { <%-- Controls request and response to and from the Custo
 		--%>
 		let prev = custList.length == selected.length,
 			removed = custList.remove(selected.map(item => item.index))
-				.getData("removed");
+				.getData("dirty").removed;
 
 		if (removed.length < 1) <%-- If removed information are all "added" ones --%>
 			return new Promise(function(resolve, reject){
