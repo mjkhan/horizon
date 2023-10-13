@@ -30,7 +30,7 @@ You do not have to have your objects implement any particular interfaces.
 <h1>Getting Started</h1>
 <h4 id="requirements">Requirements</h4>
 Horizon works
-<ul><li>in Java 8 or later</li>
+<ul><li>in Java 11 or later</li>
 	<li>with API implementations of
 		<ul><li>SLF4J</li>
 			<li>JDBC</li>
@@ -50,32 +50,32 @@ please see to it whether it already has implementations of dependent APIs availa
 To install Horizon
 <ul><li><a href="https://sourceforge.net/projects/java-horizon/files/latest/download">Download</a> the <a href="https://sourceforge.net/projects/java-horizon" target="_blank">Horizon distribution</a>.</li>
   <li>Unpack the distribution to any place that suits your need.</li>
-	<li>Add to the CLASSPATH <code>horizon-core-23.02.01.jar</code> and, if necessary, <code>horizon-spring-23.02.01.jar</code> in the <code>lib</code> directory.</li>
+	<li>Add to the CLASSPATH <code>horizon-core-23.10.01.jar</code> and, if necessary, <code>horizon-spring-23.10.01.jar</code> in the <code>lib</code> directory.</li>
 	<li>Write configurations such as dbaccess.xml and/or SQL sheets and add them to the CLASSPATH.</li>
 </ul>
 To install Horizon into your local maven repository
 <ul><li>Move to the 'lib' directory of Horizon.</li>
 	<li>Install the parent module of Horizon by executing
-		<pre><code>mvn install:install-file -Dpackaging=pom -Dfile=horizon-23.02.01.pom -DpomFile=horizon-23.02.01.pom</code></pre>
+		<pre><code>mvn install:install-file -Dpackaging=pom -Dfile=horizon-23.10.01.pom -DpomFile=horizon-23.10.01.pom</code></pre>
 	</li>
 	<li>Install horizon-core by executing
-		<pre><code>mvn org.apache.maven.plugins:maven-install-plugin:2.5.2:install-file -Dfile=horizon-core-23.02.01.jar</code></pre>
+		<pre><code>mvn org.apache.maven.plugins:maven-install-plugin:2.5.2:install-file -Dfile=horizon-core-23.10.01.jar</code></pre>
 	</li>
 	<li>Install horizon-spring by executing
-		<pre><code>mvn org.apache.maven.plugins:maven-install-plugin:2.5.2:install-file -Dfile=horizon-spring-23.02.01.jar</code></pre>
+		<pre><code>mvn org.apache.maven.plugins:maven-install-plugin:2.5.2:install-file -Dfile=horizon-spring-23.10.01.jar</code></pre>
 	</li>
 </ul>
 The maven coordinates of horizon-core is
 <pre><code>&lt;dependency>
     &lt;groupId>horizon&lt;/groupId>
     &lt;artifactId>horizon-core&lt;/artifactId>
-    &lt;version>23.02.01&lt;/version>
+    &lt;version>23.10.01&lt;/version>
 &lt;/dependency></code></pre>
 And the maven coordinates of horizon-spring is
 <pre><code>&lt;dependency>
     &lt;groupId>horizon&lt;/groupId>
     &lt;artifactId>horizon-spring&lt;/artifactId>
-    &lt;version>23.02.01&lt;/version>
+    &lt;version>23.10.01&lt;/version>
 &lt;/dependency></code></pre>
 <h4>Learning Horizon</h4>
 <p>Horizon provides API documentation for Java and JavaScript classes to help you learn the library. 
